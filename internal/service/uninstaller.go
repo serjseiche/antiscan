@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/dotX12/traffic-guard/internal/state"
 	"github.com/rs/zerolog"
 )
 
@@ -68,10 +69,13 @@ func (s *UninstallerService) stopAndDisableServices() {
 	}
 
 	services := []string{
+		"traffic-guard-update.timer",
+		"traffic-guard-update.service",
 		"antiscan-aggregate.timer",
 		"antiscan-aggregate.service",
 		"antiscan-move-rules.service",
 		"antiscan-ipset-restore.service",
+		"antiscan-docker-rules.service",
 	}
 
 	for _, serviceName := range services {
@@ -87,6 +91,18 @@ func (s *UninstallerService) stopAndDisableServices() {
 func (s *UninstallerService) cleanupIPTablesRuntime() {
 	s.cleanupIPTablesVersion(IPv4, "ufw-before-input", "iptables")
 	s.cleanupIPTablesVersion(IPv6, "ufw6-before-input", "ip6tables")
+	s.cleanupDockerUser()
+}
+
+func (s *UninstallerService) cleanupDockerUser() {
+	dropRule := []string{"-m", "set", "--match-set", ipsetV4Name, "src", "-j", "DROP"}
+	if s.iptablesCmd.RuleExists(IPv4, TableFilter, "DOCKER-USER", dropRule) {
+		if err := s.iptablesCmd.DeleteRule(IPv4, TableFilter, "DOCKER-USER", dropRule); err != nil {
+			s.logger.Warn().Err(err).Msg("Не удалось удалить правило из DOCKER-USER, продолжаем")
+		} else {
+			s.logger.Info().Msg("Правило удалено из DOCKER-USER")
+		}
+	}
 }
 
 func (s *UninstallerService) cleanupIPTablesVersion(version IPVersion, ufwInputChain, command string) {
@@ -210,12 +226,22 @@ func (s *UninstallerService) removeArtifacts(removeLogs bool) {
 		AggregateLogsScriptPath,
 		RsyslogConfigPath,
 		LogrotateConfigPath,
+		UpdateServicePath,
+		UpdateTimerPath,
+		DockerRulesServicePath,
 	}
 
 	for _, path := range paths {
 		if err := removeFileIfExists(path); err != nil {
 			s.logger.Warn().Err(err).Str("path", path).Msg("Failed to remove file, continuing")
 		}
+	}
+
+	if err := state.Remove(); err != nil {
+		s.logger.Warn().Err(err).Str("path", state.Path()).Msg("Failed to remove state file, continuing")
+	}
+	if err := state.RemoveDir(); err != nil {
+		s.logger.Debug().Err(err).Msg("State directory not removed (likely not empty)")
 	}
 
 	if !removeLogs {

@@ -51,7 +51,61 @@ func (s *IptablesService) SetupChain() error {
 		return fmt.Errorf("failed to setup IPv6 chain: %w", err)
 	}
 
+	// Setup DOCKER-USER (IPv4 only, unconditional)
+	if err := s.setupDockerUserChain(); err != nil {
+		s.logger.Warn().Err(err).Msg("Не удалось настроить DOCKER-USER, продолжаем")
+	}
+
 	s.logger.Info().Msg("Цепочки iptables настроены")
+	return nil
+}
+
+const dockerUserChain = "DOCKER-USER"
+
+// setupDockerUserChain ensures SCANNERS-BLOCK-V4 is injected into DOCKER-USER.
+// The chain is created if it does not exist (Docker may be installed later).
+func (s *IptablesService) setupDockerUserChain() error {
+	justCreated := false
+	if !s.iptablesCmd.ChainExists(IPv4, TableFilter, dockerUserChain) {
+		s.logger.Info().Msg("Создание цепочки DOCKER-USER")
+		if err := s.iptablesCmd.CreateChain(IPv4, TableFilter, dockerUserChain); err != nil {
+			return fmt.Errorf("не удалось создать DOCKER-USER: %w", err)
+		}
+		// Add RETURN at the end so Docker behaviour is preserved if it appears later
+		if err := s.iptablesCmd.AppendRule(IPv4, TableFilter, dockerUserChain, []string{"-j", "RETURN"}); err != nil {
+			s.logger.Warn().Err(err).Msg("Не удалось добавить RETURN в DOCKER-USER")
+		}
+		justCreated = true
+	}
+
+	dropRule := []string{"-m", "set", "--match-set", ipsetV4Name, "src", "-j", "DROP"}
+	if !s.iptablesCmd.RuleExists(IPv4, TableFilter, dockerUserChain, dropRule) {
+		s.logger.Info().Msg("Вставка правила DROP в DOCKER-USER на позицию 1")
+		if err := s.iptablesCmd.InsertRule(IPv4, TableFilter, dockerUserChain, 1, dropRule); err != nil {
+			return fmt.Errorf("не удалось добавить правило в DOCKER-USER: %w", err)
+		}
+	} else if justCreated {
+		s.logger.Debug().Msg("Правило DOCKER-USER уже присутствует")
+	}
+
+	if err := s.createDockerRuleService(); err != nil {
+		s.logger.Warn().Err(err).Msg("Не удалось создать сервис antiscan-docker-rules")
+	}
+	return nil
+}
+
+// createDockerRuleService writes and enables antiscan-docker-rules.service.
+func (s *IptablesService) createDockerRuleService() error {
+	if err := os.WriteFile(DockerRulesServicePath, []byte(DockerRulesServiceTemplate), 0644); err != nil {
+		return fmt.Errorf("запись %s: %w", DockerRulesServicePath, err)
+	}
+	if err := s.cmdSvc.DaemonReload(); err != nil {
+		s.logger.Warn().Err(err).Msg("daemon-reload завершился с ошибкой")
+	}
+	if err := s.cmdSvc.EnableService("antiscan-docker-rules.service"); err != nil {
+		return fmt.Errorf("включение antiscan-docker-rules.service: %w", err)
+	}
+	s.logger.Info().Msg("Сервис antiscan-docker-rules.service включён")
 	return nil
 }
 
