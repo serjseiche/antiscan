@@ -69,10 +69,13 @@ func (s *UninstallerService) stopAndDisableServices() {
 	}
 
 	services := []string{
+		"traffic-guard-update.timer",
+		"traffic-guard-update.service",
 		"antiscan-aggregate.timer",
 		"antiscan-aggregate.service",
 		"antiscan-move-rules.service",
 		"antiscan-ipset-restore.service",
+		"antiscan-docker-rules.service",
 	}
 
 	for _, serviceName := range services {
@@ -211,6 +214,9 @@ func (s *UninstallerService) removeArtifacts(removeLogs bool) {
 		AggregateLogsScriptPath,
 		RsyslogConfigPath,
 		LogrotateConfigPath,
+		UpdateServicePath,
+		UpdateTimerPath,
+		DockerRulesServicePath,
 	}
 
 	for _, path := range paths {

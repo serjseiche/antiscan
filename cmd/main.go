@@ -15,12 +15,14 @@ import (
 )
 
 var (
-	urls          []string
-	enableLogging bool
-	confirmYes    bool
-	removeLogs    bool
-	logLevel      string
-	version       = "dev" // Версия будет устанавливаться при сборке через -ldflags
+	urls           []string
+	enableLogging  bool
+	confirmYes     bool
+	removeLogs     bool
+	logLevel       string
+	autoUpdate     bool
+	updateInterval string
+	version        = "dev" // Версия будет устанавливаться при сборке через -ldflags
 )
 
 func main() {
@@ -52,6 +54,8 @@ func main() {
 	}
 	fullCmd.Flags().StringSliceVarP(&urls, "urls", "u", []string{}, "Список URL для скачивания подсетей")
 	fullCmd.Flags().BoolVarP(&enableLogging, "enable-logging", "l", false, "Включить логирование заблокированных подключений")
+	fullCmd.Flags().BoolVar(&autoUpdate, "auto-update", false, "Включить автоматическое обновление списков")
+	fullCmd.Flags().StringVar(&updateInterval, "update-interval", "24h", "Интервал обновления (например: 24h, 30m, 7d)")
 	fullCmd.MarkFlagRequired("urls")
 
 	uninstallCmd := &cobra.Command{
@@ -69,9 +73,16 @@ func main() {
 		Run:   runStatus,
 	}
 
+	updateCmd := &cobra.Command{
+		Use:   "update",
+		Short: "Обновить списки блокировки из сохранённых URL",
+		Run:   runUpdate,
+	}
+
 	rootCmd.AddCommand(fullCmd)
 	rootCmd.AddCommand(uninstallCmd)
 	rootCmd.AddCommand(statusCmd)
+	rootCmd.AddCommand(updateCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -177,9 +188,11 @@ func runFull(cmd *cobra.Command, args []string) {
 	}
 
 	cfg := &state.Config{
-		URLs:          urls,
-		EnableLogging: enableLogging,
-		LastUpdate:    time.Now(),
+		URLs:           urls,
+		EnableLogging:  enableLogging,
+		AutoUpdate:     autoUpdate,
+		UpdateInterval: updateInterval,
+		LastUpdate:     time.Now(),
 	}
 	if err := state.Save(cfg); err != nil {
 		log.Warn().Err(err).Msg("Не удалось сохранить state-файл")
@@ -187,7 +200,60 @@ func runFull(cmd *cobra.Command, args []string) {
 		log.Info().Str("path", state.Path()).Msg("Состояние сохранено")
 	}
 
+	if autoUpdate {
+		updaterSvc := service.NewUpdaterService(log.Logger, cmdSvc)
+		if err := updaterSvc.Setup(updateInterval); err != nil {
+			log.Warn().Err(err).Msg("Не удалось настроить auto-update")
+		}
+	}
+
 	log.Info().Msg("Полная установка успешно завершена")
+}
+
+func runUpdate(cmd *cobra.Command, args []string) {
+	log := logger.Global()
+	log.Info().Msg("=== Обновление списков блокировки ===")
+
+	installer := service.NewInstallerService(log.Logger)
+	if err := installer.CheckRootPrivileges(); err != nil {
+		log.Fatal().Msg("This program must be run as root (use sudo)")
+	}
+
+	cfg, err := state.Load()
+	if err != nil {
+		log.Fatal().Msg("Не сконфигурировано, запустите traffic-guard full")
+	}
+
+	cmdSvc := service.NewCommandService(log.Logger)
+	downloader := service.NewDownloader(log.Logger)
+	ipsetSvc := service.NewIpsetService(log.Logger, cmdSvc)
+
+	networks, err := downloader.Download(cfg.URLs)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Не удалось загрузить списки")
+	}
+	if networks.TotalCount() == 0 {
+		log.Fatal().Msg("Получен пустой список, обновление отменено")
+	}
+
+	if err := ipsetSvc.Setup(); err != nil {
+		log.Fatal().Err(err).Msg("Не удалось сбросить ipset")
+	}
+	if err := ipsetSvc.Fill(networks); err != nil {
+		log.Fatal().Err(err).Msg("Не удалось заполнить ipset")
+	}
+	if err := ipsetSvc.Save("/etc/ipset.conf"); err != nil {
+		log.Warn().Err(err).Msg("Не удалось сохранить конфигурацию ipset")
+	}
+
+	cfg.LastUpdate = time.Now()
+	if err := state.Save(cfg); err != nil {
+		log.Warn().Err(err).Msg("Не удалось обновить state-файл")
+	}
+
+	log.Info().
+		Int("total", networks.TotalCount()).
+		Msg("Списки блокировки успешно обновлены")
 }
 
 func runStatus(cmd *cobra.Command, args []string) {

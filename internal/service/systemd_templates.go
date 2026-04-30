@@ -259,6 +259,54 @@ const (
 	AggregateLogsScriptPath  = "/usr/local/bin/antiscan-aggregate-logs.sh"
 	RsyslogConfigPath        = "/etc/rsyslog.d/10-iptables-scanners.conf"
 	LogrotateConfigPath      = "/etc/logrotate.d/iptables-scanners"
+	UpdateServicePath        = "/etc/systemd/system/traffic-guard-update.service"
+	UpdateTimerPath          = "/etc/systemd/system/traffic-guard-update.timer"
+	DockerRulesServicePath   = "/etc/systemd/system/antiscan-docker-rules.service"
+)
+
+// Update systemd unit templates
+const (
+	UpdateServiceTemplate = `[Unit]
+Description=Update traffic-guard scanner block lists
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/traffic-guard update
+
+[Install]
+WantedBy=multi-user.target
+`
+
+	// UpdateTimerTemplate is the systemd timer for auto-updates.
+	// {interval} will be replaced with the actual interval (e.g. "24h", "30min").
+	UpdateTimerTemplate = `[Unit]
+Description=Update traffic-guard scanner block lists timer
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec={interval}
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+`
+
+	DockerRulesServiceTemplate = `[Unit]
+Description=Reinject SCANNERS-BLOCK rule into DOCKER-USER after docker starts
+After=docker.service
+Wants=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'iptables -C DOCKER-USER -m set --match-set SCANNERS-BLOCK-V4 src -j DROP 2>/dev/null || iptables -I DOCKER-USER 1 -m set --match-set SCANNERS-BLOCK-V4 src -j DROP'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+`
 )
 
 // UFWBeforeRulesTemplates contains templates for UFW before.rules
