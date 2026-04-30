@@ -43,7 +43,7 @@ func (s *StatusService) Render(w io.Writer) error {
 	} else {
 		fmt.Fprintln(w, "Защита: не активна")
 		if chainExists && len(attachedTo) == 0 {
-			fmt.Fprintln(w, "  Цепочка SCANNERS-BLOCK существует, но не привязана к INPUT/ufw-before-input/DOCKER-USER")
+			fmt.Fprintln(w, "  Цепочка SCANNERS-BLOCK существует, но не привязана к INPUT/DOCKER-USER")
 		}
 		if !chainExists {
 			fmt.Fprintln(w, "  Цепочка SCANNERS-BLOCK отсутствует")
@@ -51,11 +51,9 @@ func (s *StatusService) Render(w io.Writer) error {
 	}
 
 	v4Count, v4Err := s.ipsetEntryCount(ipsetV4Name)
-	v6Count, v6Err := s.ipsetEntryCount(ipsetV6Name)
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Размер ipset:")
 	fmt.Fprintf(w, "  %s: %s\n", ipsetV4Name, formatCount(v4Count, v4Err))
-	fmt.Fprintf(w, "  %s: %s\n", ipsetV6Name, formatCount(v6Count, v6Err))
 
 	fmt.Fprintln(w, "")
 	cfg, err := state.Load()

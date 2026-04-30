@@ -26,7 +26,6 @@ type IPVersion string
 
 const (
 	IPv4 IPVersion = "ipv4"
-	IPv6 IPVersion = "ipv6"
 )
 
 // Table represents iptables table
@@ -70,11 +69,8 @@ const (
 	PositionInsert RulePosition = "insert"
 )
 
-// getCommand returns the appropriate command for the IP version
-func (s *IptablesCommandService) getCommand(version IPVersion) string {
-	if version == IPv6 {
-		return "ip6tables"
-	}
+// getCommand returns the iptables command (IPv4 only)
+func (s *IptablesCommandService) getCommand(_ IPVersion) string {
 	return "iptables"
 }
 

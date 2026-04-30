@@ -14,7 +14,6 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/sbin/ipset restore -exist -f /etc/ipset.conf
 ExecStart=-/usr/sbin/iptables -N SCANNERS-BLOCK
-ExecStart=-/usr/sbin/ip6tables -N SCANNERS-BLOCK
 
 [Install]
 WantedBy=multi-user.target
@@ -83,11 +82,9 @@ set -uo pipefail
 
 # Configuration
 IPV4_LOG="/var/log/iptables-scanners-ipv4.log"
-IPV6_LOG="/var/log/iptables-scanners-ipv6.log"
 OUTPUT_CSV="/var/log/iptables-scanners-aggregate.csv"
 WHOIS_CACHE="/tmp/antiscan-whois-cache.txt"
 TEMP_IPV4="/tmp/antiscan-ipv4-$$.tmp"
-TEMP_IPV6="/tmp/antiscan-ipv6-$$.tmp"
 
 # Create whois cache if doesn't exist, clean if older than 1 day
 if [ -f "$WHOIS_CACHE" ]; then
@@ -102,13 +99,6 @@ if [ -f "$IPV4_LOG" ]; then
     > "$IPV4_LOG"
     chown syslog:adm "$IPV4_LOG" 2>/dev/null || true
     chmod 640 "$IPV4_LOG" 2>/dev/null || true
-fi
-
-if [ -f "$IPV6_LOG" ]; then
-    cat "$IPV6_LOG" > "$TEMP_IPV6"
-    > "$IPV6_LOG"
-    chown syslog:adm "$IPV6_LOG" 2>/dev/null || true
-    chmod 640 "$IPV6_LOG" 2>/dev/null || true
 fi
 
 # Function to get ASN and netname from IP with caching
@@ -178,15 +168,6 @@ if [ -f "$TEMP_IPV4" ] && [ -s "$TEMP_IPV4" ]; then
     done
 fi
 
-if [ -f "$TEMP_IPV6" ] && [ -s "$TEMP_IPV6" ]; then
-    grep 'ANTISCAN-v6:' "$TEMP_IPV6" | grep -oE 'SRC=[0-9a-fA-F:]+' | sed 's/SRC=//' | sort | uniq -c | while read cnt ip; do
-        # Get timestamp for this IP (last occurrence)
-        tm=$(grep "SRC=$ip" "$TEMP_IPV6" | tail -1 | awk '{print $1}')
-        info=$(get_ip_info "$ip")
-        echo "v6|${ip}|${info}|${cnt}|${tm}" >> "$TEMP_NEW"
-    done
-fi
-
 # Merge with existing CSV if there's new data
 if [ -s "$TEMP_NEW" ]; then
     {
@@ -212,14 +193,13 @@ if [ -s "$TEMP_NEW" ]; then
 fi
 
 # Cleanup
-rm -f "$TEMP_NEW" "$TEMP_IPV4" "$TEMP_IPV6"
+rm -f "$TEMP_NEW" "$TEMP_IPV4"
 
 exit 0
 `
 
 	// RsyslogConfigTemplate is the rsyslog configuration for iptables logging
 	RsyslogConfigTemplate = `:msg, contains, "ANTISCAN-v4: " /var/log/iptables-scanners-ipv4.log
-:msg, contains, "ANTISCAN-v6: " /var/log/iptables-scanners-ipv6.log
 & stop
 `
 
@@ -321,17 +301,6 @@ const (
 	// UFWBeforeRulesFooter is the footer for SCANNERS-BLOCK in UFW before.rules
 	UFWBeforeRulesFooter = `# END SCANNERS-BLOCK
 `
-
-	// UFW6BeforeRulesHeader is the header for SCANNERS-BLOCK in UFW before6.rules
-	UFW6BeforeRulesHeader = `
-# SCANNERS-BLOCK chain - managed by antiscan
-:SCANNERS-BLOCK - [0:0]
--A ufw6-before-input -j SCANNERS-BLOCK
-`
-
-	// UFW6BeforeRulesFooter is the footer for SCANNERS-BLOCK in UFW before6.rules
-	UFW6BeforeRulesFooter = `# END SCANNERS-BLOCK
-`
 )
 
 // IpsetConfigPaths contains paths for ipset configuration
@@ -339,7 +308,6 @@ const (
 	IpsetConfigPath     = "/etc/ipset.conf"
 	IpsetConfigPathAlt  = "/etc/iptables/ipsets"
 	IptablesRulesV4Path = "/etc/iptables/rules.v4"
-	IptablesRulesV6Path = "/etc/iptables/rules.v6"
 	UFWBeforeRulesPath  = "/etc/ufw/before.rules"
 	UFW6BeforeRulesPath = "/etc/ufw/before6.rules"
 )
@@ -347,6 +315,5 @@ const (
 // LogPaths contains paths for log files
 const (
 	IPv4LogPath      = "/var/log/iptables-scanners-ipv4.log"
-	IPv6LogPath      = "/var/log/iptables-scanners-ipv6.log"
 	AggregateLogPath = "/var/log/iptables-scanners-aggregate.csv"
 )

@@ -55,7 +55,7 @@ func (s *LoggingService) Setup() error {
 	}
 
 	s.logger.Info().Msg("Конфигурация логирования готова")
-	s.logger.Info().Msg("  Сырые логи: /var/log/iptables-scanners-{ipv4,ipv6}.log")
+	s.logger.Info().Msg("  Сырые логи: /var/log/iptables-scanners-ipv4.log")
 	s.logger.Info().Msg("  Агрегированные: /var/log/iptables-scanners-aggregate.csv (с ASN/netname, обновляются каждые 30 сек)")
 	s.logger.Info().Msg("  Rate limit: 10 entries/minute")
 	s.logger.Info().Msg("  Проверить статус: systemctl status antiscan-aggregate.timer")
@@ -77,7 +77,6 @@ func (s *LoggingService) createLogFiles() error {
 	// Create empty log files with correct permissions
 	logFiles := []string{
 		IPv4LogPath,
-		IPv6LogPath,
 	}
 
 	for _, logFile := range logFiles {

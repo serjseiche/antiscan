@@ -41,17 +41,11 @@ func (s *IptablesService) SetupChain() error {
 		s.logger.Info().Msg("UFW обнаружен - правила будут добавлены в ufw-before-input")
 	}
 
-	// Setup IPv4
 	if err := s.setupVersionChain(IPv4, ipsetV4Name, linkToInput); err != nil {
 		return fmt.Errorf("failed to setup IPv4 chain: %w", err)
 	}
 
-	// Setup IPv6
-	if err := s.setupVersionChain(IPv6, ipsetV6Name, linkToInput); err != nil {
-		return fmt.Errorf("failed to setup IPv6 chain: %w", err)
-	}
-
-	// Setup DOCKER-USER (IPv4 only, unconditional)
+	// Setup DOCKER-USER
 	if err := s.setupDockerUserChain(); err != nil {
 		s.logger.Warn().Err(err).Msg("Не удалось настроить DOCKER-USER, продолжаем")
 	}
@@ -148,13 +142,8 @@ func (s *IptablesService) setupVersionChain(version IPVersion, ipsetName string,
 		}
 	}
 
-	// Add logging rule at position 2 (after ESTABLISHED) if enabled
 	if s.enableLogging {
-		versionLabel := "v4"
-		if version == IPv6 {
-			versionLabel = "v6"
-		}
-		logPrefix := fmt.Sprintf("ANTISCAN-%s: ", versionLabel)
+		logPrefix := "ANTISCAN-v4: "
 		logRule := NewRuleBuilder().
 			MatchSet(ipsetName, "src").
 			MatchLimit("10/min", "5").
@@ -320,7 +309,6 @@ func (s *IptablesService) saveWithUFW() error {
 	// Нужно только добавить наши правила в before.rules
 
 	beforeRulesV4 := "/etc/ufw/before.rules"
-	beforeRulesV6 := "/etc/ufw/before6.rules"
 
 	// Читаем текущие before.rules
 	contentV4, err := os.ReadFile(beforeRulesV4)
@@ -328,20 +316,12 @@ func (s *IptablesService) saveWithUFW() error {
 		return fmt.Errorf("failed to read UFW before.rules: %w", err)
 	}
 
-	contentV6, err := os.ReadFile(beforeRulesV6)
-	if err != nil {
-		s.logger.Warn().Err(err).Msg("Не удалось прочитать UFW before6.rules")
-	}
+	marker := "# SCANNERS-BLOCK chain - managed by antiscan"
 
-	// Проверяем есть ли уже наша цепочка
-	markerV4 := "# SCANNERS-BLOCK chain - managed by antiscan"
-	markerV6 := "# SCANNERS-BLOCK chain - managed by antiscan"
-
-	// Удаляем старый managed блок если существует (для поддержки обновлений)
 	contentV4Str := string(contentV4)
-	if strings.Contains(contentV4Str, markerV4) {
+	if strings.Contains(contentV4Str, marker) {
 		s.logger.Info().Msg("Обнаружен существующий блок SCANNERS-BLOCK в before.rules, обновляем...")
-		contentV4Str = s.removeManagedBlock(contentV4Str, markerV4)
+		contentV4Str = s.removeManagedBlock(contentV4Str, marker)
 	}
 
 	// Добавляем наши правила в before.rules (внутри существующей секции *filter)
@@ -393,65 +373,6 @@ func (s *IptablesService) saveWithUFW() error {
 	}
 	s.logger.Info().Msg("Обновлён UFW before.rules для IPv4")
 
-	if contentV6 != nil {
-		// Удаляем старый managed блок если существует (для поддержки обновлений)
-		contentV6Str := string(contentV6)
-		if strings.Contains(contentV6Str, markerV6) {
-			s.logger.Info().Msg("Обнаружен существующий блок SCANNERS-BLOCK в before6.rules, обновляем...")
-			contentV6Str = s.removeManagedBlock(contentV6Str, markerV6)
-		}
-
-		// Генерируем правила используя RuleBuilder
-		establishedRuleV6 := strings.Join(NewRuleBuilder().
-			MatchConntrack("ESTABLISHED", "RELATED").
-			Jump(TargetReturn).
-			Build(), " ")
-
-		logRuleV6 := ""
-		if s.enableLogging {
-			logRuleV6 = fmt.Sprintf("-A %s %s\n", chainName, strings.Join(NewRuleBuilder().
-				MatchSet(ipsetV6Name, "src").
-				MatchLimit("10/min", "5").
-				Jump(TargetLog).
-				LogPrefix("\"ANTISCAN-v6: \"").
-				LogLevel("4").
-				Build(), " "))
-		}
-
-		dropRuleV6 := strings.Join(NewRuleBuilder().
-			MatchSet(ipsetV6Name, "src").
-			Jump(TargetDrop).
-			Build(), " ")
-
-		rulesV6 := fmt.Sprintf(`
-# SCANNERS-BLOCK chain - managed by antiscan
-# DO NOT EDIT THIS SECTION MANUALLY
-:%s - [0:0]
--A ufw6-before-input -j %s
--A %s %s
-%s
--A %s %s
-# END SCANNERS-BLOCK
-
-`, chainName, chainName, chainName, establishedRuleV6, logRuleV6, chainName, dropRuleV6)
-
-		lastCommit := strings.LastIndex(contentV6Str, "COMMIT\n")
-		if lastCommit == -1 {
-			s.logger.Warn().Msg("COMMIT не найден в before6.rules")
-		} else {
-			newContent := contentV6Str[:lastCommit] + rulesV6 + contentV6Str[lastCommit:]
-			if err := os.WriteFile(beforeRulesV6+".new", []byte(newContent), 0640); err != nil {
-				s.logger.Warn().Err(err).Msg("Не удалось записать UFW правила для IPv6")
-			} else {
-				if err := os.Rename(beforeRulesV6+".new", beforeRulesV6); err != nil {
-					s.logger.Warn().Err(err).Msg("Не удалось обновить UFW before6.rules")
-				} else {
-					s.logger.Info().Msg("Обновлён UFW before6.rules для IPv6")
-				}
-			}
-		}
-	}
-
 	// Перезагружаем UFW (используем disable+enable так как reload не всегда работает)
 	// UFW загрузит правила из before.rules автоматически
 	if !wasActive {
@@ -482,17 +403,6 @@ func (s *IptablesService) saveWithUFW() error {
 		s.logger.Warn().Err(err).Msg("Не удалось вставить SCANNERS-BLOCK на позицию 1 (IPv4)")
 	} else {
 		s.logger.Info().Msg("SCANNERS-BLOCK перемещён на позицию 1 в ufw-before-input (IPv4)")
-	}
-
-	// То же самое для IPv6
-	if err := s.cmdSvc.Run("ip6tables", "-D", "ufw6-before-input", "-j", chainName); err != nil {
-		s.logger.Warn().Err(err).Msg("Не удалось удалить SCANNERS-BLOCK из ufw6-before-input")
-	}
-
-	if err := s.cmdSvc.Run("ip6tables", "-I", "ufw6-before-input", "1", "-j", chainName); err != nil {
-		s.logger.Warn().Err(err).Msg("Не удалось вставить SCANNERS-BLOCK на позицию 1 (IPv6)")
-	} else {
-		s.logger.Info().Msg("SCANNERS-BLOCK перемещён на позицию 1 в ufw6-before-input (IPv6)")
 	}
 
 	// Create systemd service to move rules after UFW starts
@@ -537,12 +447,7 @@ func (s *IptablesService) saveWithNetfilterPersistent() error {
 	if err := s.iptablesCmd.Save(IPv4, "/etc/iptables/rules.v4"); err != nil {
 		return fmt.Errorf("failed to save iptables: %w", err)
 	}
-	s.logger.Info().Msg("Правила IPv4 сохранены в /etc/iptables/rules.v4")
-
-	if err := s.iptablesCmd.Save(IPv6, "/etc/iptables/rules.v6"); err != nil {
-		return fmt.Errorf("failed to save ip6tables: %w", err)
-	}
-	s.logger.Info().Msg("Правила IPv6 сохранены в /etc/iptables/rules.v6")
+	s.logger.Info().Msg("Правила iptables сохранены в /etc/iptables/rules.v4")
 
 	// Применяем через netfilter-persistent
 	if err := s.cmdSvc.Run("netfilter-persistent", "save"); err != nil {

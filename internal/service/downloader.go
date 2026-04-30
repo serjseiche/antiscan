@@ -64,8 +64,7 @@ func (d *Downloader) Download(urls []string) (*domain.NetworkList, error) {
 			}
 			seenSubnets[subnet] = true
 
-			isIPv6 := isIPv6Subnet(subnet)
-			networks.Add(subnet, isIPv6)
+			networks.Add(subnet, false)
 			added++
 		}
 
@@ -76,9 +75,7 @@ func (d *Downloader) Download(urls []string) (*domain.NetworkList, error) {
 	}
 
 	d.logger.Info().
-		Int("ipv4_count", networks.IPv4Count()).
-		Int("ipv6_count", networks.IPv6Count()).
-		Int("total", networks.TotalCount()).
+		Int("total", networks.IPv4Count()).
 		Msg("Загрузка завершена")
 
 	return networks, nil
@@ -113,7 +110,3 @@ func (d *Downloader) downloadSingle(url string) ([]string, error) {
 	return subnets, nil
 }
 
-// isIPv6Subnet checks if a subnet is IPv6
-func isIPv6Subnet(subnet string) bool {
-	return strings.Contains(subnet, ":")
-}

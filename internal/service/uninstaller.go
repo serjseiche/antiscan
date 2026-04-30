@@ -90,7 +90,6 @@ func (s *UninstallerService) stopAndDisableServices() {
 
 func (s *UninstallerService) cleanupIPTablesRuntime() {
 	s.cleanupIPTablesVersion(IPv4, "ufw-before-input", "iptables")
-	s.cleanupIPTablesVersion(IPv6, "ufw6-before-input", "ip6tables")
 	s.cleanupDockerUser()
 }
 
@@ -199,7 +198,7 @@ func (s *UninstallerService) removeManagedUFWBlock(path string) (bool, error) {
 }
 
 func (s *UninstallerService) cleanupIPSet() {
-	for _, setName := range []string{ipsetV4Name, ipsetV6Name} {
+	for _, setName := range []string{ipsetV4Name} {
 		if !s.ipsetCmd.Exists(setName) {
 			continue
 		}
@@ -296,10 +295,6 @@ func (s *UninstallerService) persistFirewallState() error {
 	}
 
 	if err := s.iptablesCmd.Save(IPv4, IptablesRulesV4Path); err != nil {
-		return err
-	}
-
-	if err := s.iptablesCmd.Save(IPv6, IptablesRulesV6Path); err != nil {
 		return err
 	}
 

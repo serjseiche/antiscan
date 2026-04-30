@@ -24,7 +24,7 @@ func NewInstallerService(logger zerolog.Logger) *InstallerService {
 func (s *InstallerService) EnsureDependencies() error {
 	s.logger.Info().Msg("Проверка зависимостей")
 
-	for _, pkg := range []string{"iptables", "ip6tables", "ipset"} {
+	for _, pkg := range []string{"iptables", "ipset"} {
 		if !s.commandExists(pkg) {
 			return fmt.Errorf(
 				"%s не установлен.\nУстановите вручную:\n  Debian/Ubuntu: sudo apt-get install %s\n  RHEL/CentOS:   sudo yum install %s",
