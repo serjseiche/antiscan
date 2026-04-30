@@ -65,6 +65,7 @@ func (s *UninstallerService) stopAndDisableServices() {
 		"antiscan-aggregate.timer",
 		"antiscan-aggregate.service",
 		"antiscan-ipset-restore.service",
+		"antiscan-docker-rules.timer",
 		"antiscan-docker-rules.service",
 	}
 
@@ -142,6 +143,7 @@ func (s *UninstallerService) removeArtifacts(removeLogs bool) {
 		UpdateServicePath,
 		UpdateTimerPath,
 		DockerRulesServicePath,
+		DockerRulesTimerPath,
 	}
 
 	for _, path := range paths {

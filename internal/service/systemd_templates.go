@@ -221,6 +221,7 @@ const (
 	UpdateServicePath        = "/etc/systemd/system/traffic-guard-update.service"
 	UpdateTimerPath          = "/etc/systemd/system/traffic-guard-update.timer"
 	DockerRulesServicePath   = "/etc/systemd/system/antiscan-docker-rules.service"
+	DockerRulesTimerPath     = "/etc/systemd/system/antiscan-docker-rules.timer"
 )
 
 // Update systemd unit templates
@@ -265,6 +266,18 @@ RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
+`
+
+	DockerRulesTimerTemplate = `[Unit]
+Description=Reinject SCANNERS-BLOCK rule into DOCKER-USER (periodic)
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+AccuracySec=30sec
+
+[Install]
+WantedBy=timers.target
 `
 )
 

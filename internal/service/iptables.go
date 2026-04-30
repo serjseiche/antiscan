@@ -92,10 +92,13 @@ func (s *IptablesService) setupDockerUserChain() error {
 	return nil
 }
 
-// createDockerRuleService writes and enables antiscan-docker-rules.service.
+// createDockerRuleService writes and enables antiscan-docker-rules.service and its timer.
 func (s *IptablesService) createDockerRuleService() error {
 	if err := os.WriteFile(DockerRulesServicePath, []byte(DockerRulesServiceTemplate), 0644); err != nil {
 		return fmt.Errorf("запись %s: %w", DockerRulesServicePath, err)
+	}
+	if err := os.WriteFile(DockerRulesTimerPath, []byte(DockerRulesTimerTemplate), 0644); err != nil {
+		return fmt.Errorf("запись %s: %w", DockerRulesTimerPath, err)
 	}
 	if err := s.cmdSvc.DaemonReload(); err != nil {
 		s.logger.Warn().Err(err).Msg("daemon-reload завершился с ошибкой")
@@ -103,7 +106,10 @@ func (s *IptablesService) createDockerRuleService() error {
 	if err := s.cmdSvc.EnableService("antiscan-docker-rules.service"); err != nil {
 		return fmt.Errorf("включение antiscan-docker-rules.service: %w", err)
 	}
-	s.logger.Info().Msg("Сервис antiscan-docker-rules.service включён")
+	if err := s.cmdSvc.Run("systemctl", "enable", "--now", "antiscan-docker-rules.timer"); err != nil {
+		s.logger.Warn().Err(err).Msg("Не удалось включить antiscan-docker-rules.timer")
+	}
+	s.logger.Info().Msg("Сервис и таймер antiscan-docker-rules включены")
 	return nil
 }
 
