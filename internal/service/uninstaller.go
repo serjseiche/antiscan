@@ -91,6 +91,18 @@ func (s *UninstallerService) stopAndDisableServices() {
 func (s *UninstallerService) cleanupIPTablesRuntime() {
 	s.cleanupIPTablesVersion(IPv4, "ufw-before-input", "iptables")
 	s.cleanupIPTablesVersion(IPv6, "ufw6-before-input", "ip6tables")
+	s.cleanupDockerUser()
+}
+
+func (s *UninstallerService) cleanupDockerUser() {
+	dropRule := []string{"-m", "set", "--match-set", ipsetV4Name, "src", "-j", "DROP"}
+	if s.iptablesCmd.RuleExists(IPv4, TableFilter, "DOCKER-USER", dropRule) {
+		if err := s.iptablesCmd.DeleteRule(IPv4, TableFilter, "DOCKER-USER", dropRule); err != nil {
+			s.logger.Warn().Err(err).Msg("Не удалось удалить правило из DOCKER-USER, продолжаем")
+		} else {
+			s.logger.Info().Msg("Правило удалено из DOCKER-USER")
+		}
+	}
 }
 
 func (s *UninstallerService) cleanupIPTablesVersion(version IPVersion, ufwInputChain, command string) {
