@@ -11,11 +11,14 @@ import (
 )
 
 const (
-	configDir  = "/etc/traffic-guard"
 	configFile = "config.json"
 	dirMode    = 0755
 	fileMode   = 0644
 )
+
+// configDir is the directory for the state file.
+// Exposed as a variable so tests can override it with t.TempDir().
+var configDir = "/etc/traffic-guard"
 
 // ErrNotFound indicates the state file does not exist.
 var ErrNotFound = errors.New("state file not found")
