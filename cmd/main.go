@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/dotX12/traffic-guard/internal/logger"
 	"github.com/dotX12/traffic-guard/internal/service"
+	"github.com/dotX12/traffic-guard/internal/state"
 )
 
 var (
@@ -61,8 +63,15 @@ func main() {
 	uninstallCmd.Flags().BoolVar(&confirmYes, "yes", false, "Подтвердить удаление без интерактивного запроса")
 	uninstallCmd.Flags().BoolVar(&removeLogs, "remove-logs", false, "Удалить логи traffic-guard из /var/log")
 
+	statusCmd := &cobra.Command{
+		Use:   "status",
+		Short: "Показать текущее состояние защиты",
+		Run:   runStatus,
+	}
+
 	rootCmd.AddCommand(fullCmd)
 	rootCmd.AddCommand(uninstallCmd)
+	rootCmd.AddCommand(statusCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -167,7 +176,29 @@ func runFull(cmd *cobra.Command, args []string) {
 		log.Fatal().Err(err).Msg("Не удалось сохранить правила iptables")
 	}
 
+	cfg := &state.Config{
+		URLs:          urls,
+		EnableLogging: enableLogging,
+		LastUpdate:    time.Now(),
+	}
+	if err := state.Save(cfg); err != nil {
+		log.Warn().Err(err).Msg("Не удалось сохранить state-файл")
+	} else {
+		log.Info().Str("path", state.Path()).Msg("Состояние сохранено")
+	}
+
 	log.Info().Msg("Полная установка успешно завершена")
+}
+
+func runStatus(cmd *cobra.Command, args []string) {
+	log := logger.Global()
+
+	cmdSvc := service.NewCommandService(log.Logger)
+	statusSvc := service.NewStatusService(log.Logger, cmdSvc)
+
+	if err := statusSvc.Render(os.Stdout); err != nil {
+		log.Fatal().Err(err).Msg("Не удалось получить статус")
+	}
 }
 
 func runUninstall(cmd *cobra.Command, args []string) {
