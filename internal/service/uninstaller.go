@@ -4,15 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/dotX12/traffic-guard/internal/state"
 	"github.com/rs/zerolog"
-)
-
-const (
-	ufwManagedBlockStart = "# SCANNERS-BLOCK chain - managed by antiscan"
-	ufwManagedBlockEnd   = "# END SCANNERS-BLOCK"
 )
 
 // UninstallerService reverts TrafficGuard-managed system changes.
@@ -40,9 +34,6 @@ func (s *UninstallerService) Uninstall(removeLogs bool) error {
 
 	s.stopAndDisableServices()
 	s.cleanupIPTablesRuntime()
-	if err := s.cleanupUFWBeforeRules(); err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to cleanup UFW before.rules markers")
-	}
 	s.cleanupIPSet()
 	s.removeArtifacts(removeLogs)
 
@@ -73,7 +64,6 @@ func (s *UninstallerService) stopAndDisableServices() {
 		"traffic-guard-update.service",
 		"antiscan-aggregate.timer",
 		"antiscan-aggregate.service",
-		"antiscan-move-rules.service",
 		"antiscan-ipset-restore.service",
 		"antiscan-docker-rules.service",
 	}
@@ -89,7 +79,7 @@ func (s *UninstallerService) stopAndDisableServices() {
 }
 
 func (s *UninstallerService) cleanupIPTablesRuntime() {
-	s.cleanupIPTablesVersion(IPv4, "ufw-before-input", "iptables")
+	s.cleanupIPTablesVersion(IPv4)
 	s.cleanupDockerUser()
 }
 
@@ -104,13 +94,9 @@ func (s *UninstallerService) cleanupDockerUser() {
 	}
 }
 
-func (s *UninstallerService) cleanupIPTablesVersion(version IPVersion, ufwInputChain, command string) {
+func (s *UninstallerService) cleanupIPTablesVersion(version IPVersion) {
 	if err := s.iptablesCmd.UnlinkChainFromInput(version, chainName); err != nil {
 		s.logger.Warn().Err(err).Str("version", string(version)).Msg("Failed to unlink chain from INPUT, continuing")
-	}
-
-	if err := s.cmdSvc.Run(command, "-D", ufwInputChain, "-j", chainName); err != nil {
-		s.logger.Warn().Err(err).Str("version", string(version)).Msg("Failed to unlink chain from UFW input, continuing")
 	}
 
 	if !s.iptablesCmd.ChainExists(version, TableFilter, chainName) {
@@ -124,77 +110,6 @@ func (s *UninstallerService) cleanupIPTablesVersion(version IPVersion, ufwInputC
 	if err := s.iptablesCmd.DeleteChain(version, TableFilter, chainName); err != nil {
 		s.logger.Warn().Err(err).Str("version", string(version)).Msg("Failed to delete chain, continuing")
 	}
-}
-
-func (s *UninstallerService) cleanupUFWBeforeRules() error {
-	changedV4, err := s.removeManagedUFWBlock(UFWBeforeRulesPath)
-	if err != nil {
-		return err
-	}
-
-	changedV6, err := s.removeManagedUFWBlock(UFW6BeforeRulesPath)
-	if err != nil {
-		return err
-	}
-
-	if (changedV4 || changedV6) && s.cmdSvc.CommandExists("ufw") {
-		if err := s.cmdSvc.Run("ufw", "reload"); err != nil {
-			s.logger.Warn().Err(err).Msg("Failed to reload UFW after cleanup")
-		}
-	}
-
-	return nil
-}
-
-func (s *UninstallerService) removeManagedUFWBlock(path string) (bool, error) {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, fmt.Errorf("failed to read %s: %w", path, err)
-	}
-
-	updated := string(content)
-	original := updated
-	blocksRemoved := 0
-
-	for {
-		start := strings.Index(updated, ufwManagedBlockStart)
-		if start == -1 {
-			break
-		}
-
-		endRel := strings.Index(updated[start:], ufwManagedBlockEnd)
-		if endRel == -1 {
-			s.logger.Warn().Str("path", path).Msg("Managed block start found but no end marker, skipping")
-			break
-		}
-
-		end := start + endRel + len(ufwManagedBlockEnd)
-		for end < len(updated) && (updated[end] == '\n' || updated[end] == '\r') {
-			end++
-		}
-
-		updated = updated[:start] + updated[end:]
-		blocksRemoved++
-	}
-
-	if updated == original {
-		return false, nil
-	}
-
-	tmpPath := path + ".new"
-	if err := os.WriteFile(tmpPath, []byte(updated), 0640); err != nil {
-		return false, fmt.Errorf("failed to write %s: %w", tmpPath, err)
-	}
-
-	if err := os.Rename(tmpPath, path); err != nil {
-		return false, fmt.Errorf("failed to replace %s: %w", path, err)
-	}
-
-	s.logger.Info().Str("path", path).Int("blocks", blocksRemoved).Msg("Removed TrafficGuard managed UFW blocks")
-	return true, nil
 }
 
 func (s *UninstallerService) cleanupIPSet() {
@@ -219,7 +134,6 @@ func (s *UninstallerService) cleanupIPSet() {
 func (s *UninstallerService) removeArtifacts(removeLogs bool) {
 	paths := []string{
 		IpsetRestoreServicePath,
-		MoveRulesServicePath,
 		AggregateLogsServicePath,
 		AggregateLogsTimerPath,
 		AggregateLogsScriptPath,
@@ -283,11 +197,6 @@ func (s *UninstallerService) reloadRsyslog() error {
 }
 
 func (s *UninstallerService) persistFirewallState() error {
-	if s.cmdSvc.CommandExists("ufw") {
-		s.logger.Debug().Msg("UFW detected, skipping manual iptables persistence")
-		return nil
-	}
-
 	s.logger.Info().Msg("Persisting firewall state to /etc/iptables/")
 
 	if err := os.MkdirAll("/etc/iptables", 0755); err != nil {

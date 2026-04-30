@@ -106,29 +106,15 @@ func runFull(cmd *cobra.Command, args []string) {
 
 	// Check root
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Msg("This program must be run as root (use sudo)")
+		log.Fatal().Err(err).Msg("Недостаточно прав")
+	}
+
+	if err := installer.CheckNoUFW(); err != nil {
+		log.Fatal().Err(err).Msg("Несовместимая конфигурация")
 	}
 
 	if len(urls) == 0 {
 		log.Panic().Msg("Не указаны URL для скачивания подсетей. Используйте флаг --urls")
-	}
-
-	// UFW Safety Warning
-	if cmdSvc.CommandExists("ufw") {
-		output, err := cmdSvc.RunOutput("ufw", "status")
-		isActive := err == nil && strings.Contains(output, "Status: active")
-
-		if !isActive {
-			log.Warn().Msg("⚠️  UFW установлен но неактивен")
-			log.Warn().Msg("⚠️  ВНИМАНИЕ: Если UFW не имеет правил для SSH, включение UFW заблокирует доступ!")
-			log.Warn().Msg("")
-			log.Warn().Msg("Убедитесь что SSH разрешён:")
-			log.Warn().Msg("  sudo ufw allow 22/tcp")
-			log.Warn().Msg("  sudo ufw allow OpenSSH")
-			log.Warn().Msg("")
-			log.Warn().Msg("traffic-guard проверит наличие правил SSH и прервёт установку если их нет")
-			log.Warn().Msg("")
-		}
 	}
 
 	// Ensure dependencies
@@ -216,7 +202,7 @@ func runUpdate(cmd *cobra.Command, args []string) {
 
 	installer := service.NewInstallerService(log.Logger)
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Msg("This program must be run as root (use sudo)")
+		log.Fatal().Msg("Программа должна быть запущена от root (используйте sudo)")
 	}
 
 	cfg, err := state.Load()
@@ -276,7 +262,7 @@ func runUninstall(cmd *cobra.Command, args []string) {
 	uninstaller := service.NewUninstallerService(log.Logger, cmdSvc)
 
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Msg("This program must be run as root (use sudo)")
+		log.Fatal().Msg("Программа должна быть запущена от root (используйте sudo)")
 	}
 
 	if !confirmYes {

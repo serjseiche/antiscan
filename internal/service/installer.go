@@ -38,6 +38,19 @@ func (s *InstallerService) EnsureDependencies() error {
 	return nil
 }
 
+// CheckNoUFW returns an error if UFW is detected. traffic-guard requires direct iptables access.
+func (s *InstallerService) CheckNoUFW() error {
+	if s.commandExists("ufw") {
+		return fmt.Errorf(
+			"UFW обнаружен в системе. traffic-guard работает только с iptables напрямую.\n" +
+				"Удалите UFW перед установкой:\n" +
+				"  Debian/Ubuntu: sudo apt remove --purge ufw\n" +
+				"  RHEL/CentOS:   sudo yum remove ufw",
+		)
+	}
+	return nil
+}
+
 // EnsureNetfilterPersistent checks that netfilter-persistent is installed (Debian only)
 func (s *InstallerService) EnsureNetfilterPersistent() error {
 	s.logger.Info().Msg("Проверка системы сохранения правил")
@@ -46,11 +59,6 @@ func (s *InstallerService) EnsureNetfilterPersistent() error {
 
 	if distro != "debian" {
 		s.logger.Debug().Msg("netfilter-persistent доступен только для Debian-based систем")
-		return nil
-	}
-
-	if s.commandExists("ufw") {
-		s.logger.Info().Msg("UFW обнаружен - netfilter-persistent не требуется")
 		return nil
 	}
 
@@ -84,7 +92,7 @@ func getDistroType() string {
 // CheckRootPrivileges verifies the program is running as root
 func (s *InstallerService) CheckRootPrivileges() error {
 	if os.Geteuid() != 0 {
-		return fmt.Errorf("this program must be run as root (use sudo)")
+		return fmt.Errorf("программа должна быть запущена от root (используйте sudo)")
 	}
 	return nil
 }

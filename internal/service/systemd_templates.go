@@ -5,7 +5,6 @@ const (
 	// IpsetRestoreServiceTemplate is the systemd service for restoring ipset on boot
 	IpsetRestoreServiceTemplate = `[Unit]
 Description=Restore TrafficGuard ipset configuration
-Before=ufw.service
 Before=netfilter-persistent.service
 DefaultDependencies=no
 
@@ -18,25 +17,6 @@ ExecStart=-/usr/sbin/iptables -N SCANNERS-BLOCK
 [Install]
 WantedBy=multi-user.target
 RequiredBy=netfilter-persistent.service
-`
-
-	// MoveRulesServiceTemplate is the systemd service for moving SCANNERS-BLOCK to position 1
-	MoveRulesServiceTemplate = `[Unit]
-Description=Move TrafficGuard rules to position 1 in UFW chains
-After=ufw.service
-After=network.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/bin/sleep 2
-ExecStart=-/usr/sbin/iptables -D ufw-before-input -j SCANNERS-BLOCK
-ExecStart=/usr/sbin/iptables -I ufw-before-input 1 -j SCANNERS-BLOCK
-ExecStart=-/usr/sbin/ip6tables -D ufw6-before-input -j SCANNERS-BLOCK
-ExecStart=/usr/sbin/ip6tables -I ufw6-before-input 1 -j SCANNERS-BLOCK
-
-[Install]
-WantedBy=multi-user.target
 `
 
 	// AggregateLogsServiceTemplate is the systemd service for log aggregation
@@ -233,7 +213,6 @@ exit 0
 // SystemdServicePaths contains paths to systemd service files
 const (
 	IpsetRestoreServicePath  = "/etc/systemd/system/antiscan-ipset-restore.service"
-	MoveRulesServicePath     = "/etc/systemd/system/antiscan-move-rules.service"
 	AggregateLogsServicePath = "/etc/systemd/system/antiscan-aggregate.service"
 	AggregateLogsTimerPath   = "/etc/systemd/system/antiscan-aggregate.timer"
 	AggregateLogsScriptPath  = "/usr/local/bin/antiscan-aggregate-logs.sh"
@@ -289,27 +268,11 @@ WantedBy=multi-user.target
 `
 )
 
-// UFWBeforeRulesTemplates contains templates for UFW before.rules
-const (
-	// UFWBeforeRulesHeader is the header for SCANNERS-BLOCK in UFW before.rules
-	UFWBeforeRulesHeader = `
-# SCANNERS-BLOCK chain - managed by antiscan
-:SCANNERS-BLOCK - [0:0]
--A ufw-before-input -j SCANNERS-BLOCK
-`
-
-	// UFWBeforeRulesFooter is the footer for SCANNERS-BLOCK in UFW before.rules
-	UFWBeforeRulesFooter = `# END SCANNERS-BLOCK
-`
-)
-
 // IpsetConfigPaths contains paths for ipset configuration
 const (
 	IpsetConfigPath     = "/etc/ipset.conf"
 	IpsetConfigPathAlt  = "/etc/iptables/ipsets"
 	IptablesRulesV4Path = "/etc/iptables/rules.v4"
-	UFWBeforeRulesPath  = "/etc/ufw/before.rules"
-	UFW6BeforeRulesPath = "/etc/ufw/before6.rules"
 )
 
 // LogPaths contains paths for log files
