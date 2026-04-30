@@ -5,7 +5,6 @@ const (
 	// IpsetRestoreServiceTemplate is the systemd service for restoring ipset on boot
 	IpsetRestoreServiceTemplate = `[Unit]
 Description=Restore TrafficGuard ipset configuration
-Before=ufw.service
 Before=netfilter-persistent.service
 DefaultDependencies=no
 
@@ -14,30 +13,10 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/sbin/ipset restore -exist -f /etc/ipset.conf
 ExecStart=-/usr/sbin/iptables -N SCANNERS-BLOCK
-ExecStart=-/usr/sbin/ip6tables -N SCANNERS-BLOCK
 
 [Install]
 WantedBy=multi-user.target
 RequiredBy=netfilter-persistent.service
-`
-
-	// MoveRulesServiceTemplate is the systemd service for moving SCANNERS-BLOCK to position 1
-	MoveRulesServiceTemplate = `[Unit]
-Description=Move TrafficGuard rules to position 1 in UFW chains
-After=ufw.service
-After=network.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/bin/sleep 2
-ExecStart=-/usr/sbin/iptables -D ufw-before-input -j SCANNERS-BLOCK
-ExecStart=/usr/sbin/iptables -I ufw-before-input 1 -j SCANNERS-BLOCK
-ExecStart=-/usr/sbin/ip6tables -D ufw6-before-input -j SCANNERS-BLOCK
-ExecStart=/usr/sbin/ip6tables -I ufw6-before-input 1 -j SCANNERS-BLOCK
-
-[Install]
-WantedBy=multi-user.target
 `
 
 	// AggregateLogsServiceTemplate is the systemd service for log aggregation
@@ -83,11 +62,9 @@ set -uo pipefail
 
 # Configuration
 IPV4_LOG="/var/log/iptables-scanners-ipv4.log"
-IPV6_LOG="/var/log/iptables-scanners-ipv6.log"
 OUTPUT_CSV="/var/log/iptables-scanners-aggregate.csv"
 WHOIS_CACHE="/tmp/antiscan-whois-cache.txt"
 TEMP_IPV4="/tmp/antiscan-ipv4-$$.tmp"
-TEMP_IPV6="/tmp/antiscan-ipv6-$$.tmp"
 
 # Create whois cache if doesn't exist, clean if older than 1 day
 if [ -f "$WHOIS_CACHE" ]; then
@@ -102,13 +79,6 @@ if [ -f "$IPV4_LOG" ]; then
     > "$IPV4_LOG"
     chown syslog:adm "$IPV4_LOG" 2>/dev/null || true
     chmod 640 "$IPV4_LOG" 2>/dev/null || true
-fi
-
-if [ -f "$IPV6_LOG" ]; then
-    cat "$IPV6_LOG" > "$TEMP_IPV6"
-    > "$IPV6_LOG"
-    chown syslog:adm "$IPV6_LOG" 2>/dev/null || true
-    chmod 640 "$IPV6_LOG" 2>/dev/null || true
 fi
 
 # Function to get ASN and netname from IP with caching
@@ -178,15 +148,6 @@ if [ -f "$TEMP_IPV4" ] && [ -s "$TEMP_IPV4" ]; then
     done
 fi
 
-if [ -f "$TEMP_IPV6" ] && [ -s "$TEMP_IPV6" ]; then
-    grep 'ANTISCAN-v6:' "$TEMP_IPV6" | grep -oE 'SRC=[0-9a-fA-F:]+' | sed 's/SRC=//' | sort | uniq -c | while read cnt ip; do
-        # Get timestamp for this IP (last occurrence)
-        tm=$(grep "SRC=$ip" "$TEMP_IPV6" | tail -1 | awk '{print $1}')
-        info=$(get_ip_info "$ip")
-        echo "v6|${ip}|${info}|${cnt}|${tm}" >> "$TEMP_NEW"
-    done
-fi
-
 # Merge with existing CSV if there's new data
 if [ -s "$TEMP_NEW" ]; then
     {
@@ -212,14 +173,13 @@ if [ -s "$TEMP_NEW" ]; then
 fi
 
 # Cleanup
-rm -f "$TEMP_NEW" "$TEMP_IPV4" "$TEMP_IPV6"
+rm -f "$TEMP_NEW" "$TEMP_IPV4"
 
 exit 0
 `
 
 	// RsyslogConfigTemplate is the rsyslog configuration for iptables logging
 	RsyslogConfigTemplate = `:msg, contains, "ANTISCAN-v4: " /var/log/iptables-scanners-ipv4.log
-:msg, contains, "ANTISCAN-v6: " /var/log/iptables-scanners-ipv6.log
 & stop
 `
 
@@ -253,7 +213,6 @@ exit 0
 // SystemdServicePaths contains paths to systemd service files
 const (
 	IpsetRestoreServicePath  = "/etc/systemd/system/antiscan-ipset-restore.service"
-	MoveRulesServicePath     = "/etc/systemd/system/antiscan-move-rules.service"
 	AggregateLogsServicePath = "/etc/systemd/system/antiscan-aggregate.service"
 	AggregateLogsTimerPath   = "/etc/systemd/system/antiscan-aggregate.timer"
 	AggregateLogsScriptPath  = "/usr/local/bin/antiscan-aggregate-logs.sh"
@@ -262,6 +221,7 @@ const (
 	UpdateServicePath        = "/etc/systemd/system/traffic-guard-update.service"
 	UpdateTimerPath          = "/etc/systemd/system/traffic-guard-update.timer"
 	DockerRulesServicePath   = "/etc/systemd/system/antiscan-docker-rules.service"
+	DockerRulesTimerPath     = "/etc/systemd/system/antiscan-docker-rules.timer"
 )
 
 // Update systemd unit templates
@@ -307,30 +267,17 @@ RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target
 `
-)
 
-// UFWBeforeRulesTemplates contains templates for UFW before.rules
-const (
-	// UFWBeforeRulesHeader is the header for SCANNERS-BLOCK in UFW before.rules
-	UFWBeforeRulesHeader = `
-# SCANNERS-BLOCK chain - managed by antiscan
-:SCANNERS-BLOCK - [0:0]
--A ufw-before-input -j SCANNERS-BLOCK
-`
+	DockerRulesTimerTemplate = `[Unit]
+Description=Reinject SCANNERS-BLOCK rule into DOCKER-USER (periodic)
 
-	// UFWBeforeRulesFooter is the footer for SCANNERS-BLOCK in UFW before.rules
-	UFWBeforeRulesFooter = `# END SCANNERS-BLOCK
-`
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+AccuracySec=30sec
 
-	// UFW6BeforeRulesHeader is the header for SCANNERS-BLOCK in UFW before6.rules
-	UFW6BeforeRulesHeader = `
-# SCANNERS-BLOCK chain - managed by antiscan
-:SCANNERS-BLOCK - [0:0]
--A ufw6-before-input -j SCANNERS-BLOCK
-`
-
-	// UFW6BeforeRulesFooter is the footer for SCANNERS-BLOCK in UFW before6.rules
-	UFW6BeforeRulesFooter = `# END SCANNERS-BLOCK
+[Install]
+WantedBy=timers.target
 `
 )
 
@@ -339,14 +286,10 @@ const (
 	IpsetConfigPath     = "/etc/ipset.conf"
 	IpsetConfigPathAlt  = "/etc/iptables/ipsets"
 	IptablesRulesV4Path = "/etc/iptables/rules.v4"
-	IptablesRulesV6Path = "/etc/iptables/rules.v6"
-	UFWBeforeRulesPath  = "/etc/ufw/before.rules"
-	UFW6BeforeRulesPath = "/etc/ufw/before6.rules"
 )
 
 // LogPaths contains paths for log files
 const (
 	IPv4LogPath      = "/var/log/iptables-scanners-ipv4.log"
-	IPv6LogPath      = "/var/log/iptables-scanners-ipv6.log"
 	AggregateLogPath = "/var/log/iptables-scanners-aggregate.csv"
 )

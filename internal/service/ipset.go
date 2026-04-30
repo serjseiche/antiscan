@@ -11,7 +11,6 @@ import (
 
 const (
 	ipsetV4Name = "SCANNERS-BLOCK-V4"
-	ipsetV6Name = "SCANNERS-BLOCK-V6"
 )
 
 // IpsetService handles ipset operations
@@ -34,17 +33,11 @@ func NewIpsetService(logger zerolog.Logger, cmdSvc *CommandService) *IpsetServic
 func (s *IpsetService) Setup() error {
 	s.logger.Info().Msg("Установка наборов ipset")
 
-	// Setup IPv4 set
 	if err := s.setupSet(ipsetV4Name, "inet"); err != nil {
 		return fmt.Errorf("failed to setup IPv4 set: %w", err)
 	}
 
-	// Setup IPv6 set
-	if err := s.setupSet(ipsetV6Name, "inet6"); err != nil {
-		return fmt.Errorf("failed to setup IPv6 set: %w", err)
-	}
-
-	s.logger.Info().Msg("Наборы ipset установлены")
+	s.logger.Info().Msg("Набор ipset установлен")
 	return nil
 }
 
@@ -74,21 +67,14 @@ func (s *IpsetService) setupSet(name, family string) error {
 func (s *IpsetService) Fill(networks *domain.NetworkList) error {
 	s.logger.Info().
 		Int("ipv4_count", networks.IPv4Count()).
-		Int("ipv6_count", networks.IPv6Count()).
-		Msg("Заполнение ipset списков")
+		Msg("Заполнение ipset списка")
 
-	// Fill IPv4
-	addedV4, errorsV4 := s.fillSet(ipsetV4Name, networks.IPv4Subnets, "IPv4")
-
-	// Fill IPv6
-	addedV6, errorsV6 := s.fillSet(ipsetV6Name, networks.IPv6Subnets, "IPv6")
+	added, errors := s.fillSet(ipsetV4Name, networks.IPv4Subnets, "IPv4")
 
 	s.logger.Info().
-		Int("ipv4_added", addedV4).
-		Int("ipv4_errors", errorsV4).
-		Int("ipv6_added", addedV6).
-		Int("ipv6_errors", errorsV6).
-		Msg("Наборы ipset заполнены")
+		Int("added", added).
+		Int("errors", errors).
+		Msg("Набор ipset заполнен")
 
 	return nil
 }
@@ -165,6 +151,6 @@ func (s *IpsetService) CreateRestoreService() error {
 	}
 	s.logger.Info().Msg("Сервис systemd успешно включен")
 
-	s.logger.Info().Msg("Ipset будет автоматически восстановлен на системном запуске перед запуском UFW")
+	s.logger.Info().Msg("Ipset будет автоматически восстановлен при старте системы")
 	return nil
 }

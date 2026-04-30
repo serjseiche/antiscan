@@ -36,7 +36,6 @@ type Family string
 
 const (
 	FamilyIPv4 Family = "inet"
-	FamilyIPv6 Family = "inet6"
 )
 
 // CreateSetOptions contains options for creating an ipset set
