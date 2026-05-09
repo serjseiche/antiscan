@@ -50,8 +50,8 @@ func (s *LoggingService) Setup() error {
 		return fmt.Errorf("failed to setup cron job: %w", err)
 	}
 
-	// Reload rsyslog
-	if err := s.reloadRsyslog(); err != nil {
+	// Restart rsyslog
+	if err := s.restartRsyslog(); err != nil {
 		s.logger.Warn().Err(err).Msg("Не удалось перезагрузить rsyslog, может потребоваться ручная перезагрузка")
 	}
 
@@ -160,8 +160,8 @@ func (s *LoggingService) setupCronJob() error {
 	return nil
 }
 
-// reloadRsyslog restarts rsyslog service
-func (s *LoggingService) reloadRsyslog() error {
+// restartRsyslog restarts rsyslog service
+func (s *LoggingService) restartRsyslog() error {
 	if err := s.cmdSvc.RestartService("rsyslog"); err != nil {
 		return err
 	}

@@ -51,11 +51,11 @@ func (s *StatusService) Render(w io.Writer) error {
 	}
 
 	v4Count, v4Err := s.ipsetEntryCount(ipsetV4Name)
-	fmt.Fprintln(w, "")
+	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Размер ipset:")
 	fmt.Fprintf(w, "  %s: %s\n", ipsetV4Name, formatCount(v4Count, v4Err))
 
-	fmt.Fprintln(w, "")
+	fmt.Fprintln(w)
 	cfg, err := state.Load()
 	switch {
 	case errors.Is(err, state.ErrNotFound):
@@ -80,7 +80,7 @@ func (s *StatusService) Render(w io.Writer) error {
 		}
 	}
 
-	fmt.Fprintln(w, "")
+	fmt.Fprintln(w)
 	pkts, err := s.blockedPackets()
 	if err != nil {
 		fmt.Fprintf(w, "Заблокировано пакетов (IPv4): неизвестно (%v)\n", err)
@@ -94,7 +94,7 @@ func (s *StatusService) Render(w io.Writer) error {
 // collectAttachments returns user-friendly names of chains that jump to SCANNERS-BLOCK (IPv4).
 func (s *StatusService) collectAttachments() []string {
 	var found []string
-	candidates := []string{"INPUT", "ufw-before-input", "DOCKER-USER"}
+	candidates := []string{"INPUT", "DOCKER-USER"}
 	for _, chain := range candidates {
 		if s.iptablesCmd.RuleExists(IPv4, TableFilter, chain, []string{"-j", chainName}) {
 			found = append(found, chain)

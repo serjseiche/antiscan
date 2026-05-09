@@ -113,10 +113,6 @@ func runFull(cmd *cobra.Command, args []string) {
 		log.Fatal().Err(err).Msg("Несовместимая конфигурация")
 	}
 
-	if len(urls) == 0 {
-		log.Panic().Msg("Не указаны URL для скачивания подсетей. Используйте флаг --urls")
-	}
-
 	// Ensure dependencies
 	if err := installer.EnsureDependencies(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to install dependencies")
