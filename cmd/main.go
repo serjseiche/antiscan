@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/dotX12/traffic-guard/internal/logger"
-	"github.com/dotX12/traffic-guard/internal/service"
-	"github.com/dotX12/traffic-guard/internal/state"
+	"github.com/serj1974-maker/antiscan/internal/logger"
+	"github.com/serj1974-maker/antiscan/internal/service"
+	"github.com/serj1974-maker/antiscan/internal/state"
 )
 
 var (

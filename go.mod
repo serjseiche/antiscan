@@ -1,6 +1,6 @@
-module github.com/dotX12/traffic-guard
+module github.com/serj1974-maker/antiscan
 
-go 1.25.3
+go 1.25
 
 require (
 	github.com/rs/zerolog v1.34.0

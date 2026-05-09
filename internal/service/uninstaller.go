@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/dotX12/traffic-guard/internal/state"
+	"github.com/serj1974-maker/antiscan/internal/state"
 	"github.com/rs/zerolog"
 )
 
