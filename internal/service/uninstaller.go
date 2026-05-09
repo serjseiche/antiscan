@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// UninstallerService reverts TrafficGuard-managed system changes.
+// UninstallerService reverts AntiscanSimple-managed system changes.
 type UninstallerService struct {
 	logger      zerolog.Logger
 	cmdSvc      *CommandService
@@ -27,10 +27,10 @@ func NewUninstallerService(logger zerolog.Logger, cmdSvc *CommandService) *Unins
 	}
 }
 
-// Uninstall removes TrafficGuard artifacts and restores firewall state.
+// Uninstall removes AntiscanSimple artifacts and restores firewall state.
 func (s *UninstallerService) Uninstall(removeLogs bool) error {
-	s.logger.Info().Msg("=== Uninstall TrafficGuard ===")
-	s.logger.Info().Msg("TrafficGuard does not modify Linux routing tables (ip rule/ip route), skipping routing rollback")
+	s.logger.Info().Msg("=== Uninstall AntiscanSimple ===")
+	s.logger.Info().Msg("AntiscanSimple does not modify Linux routing tables (ip rule/ip route), skipping routing rollback")
 
 	s.stopAndDisableServices()
 	s.cleanupIPTablesRuntime()
@@ -49,7 +49,7 @@ func (s *UninstallerService) Uninstall(removeLogs bool) error {
 		return fmt.Errorf("failed to persist firewall state: %w", err)
 	}
 
-	s.logger.Info().Msg("TrafficGuard uninstall completed")
+	s.logger.Info().Msg("AntiscanSimple uninstall completed")
 	return nil
 }
 
@@ -60,8 +60,8 @@ func (s *UninstallerService) stopAndDisableServices() {
 	}
 
 	services := []string{
-		"traffic-guard-update.timer",
-		"traffic-guard-update.service",
+		"antiscan-simple-update.timer",
+		"antiscan-simple-update.service",
 		"antiscan-aggregate.timer",
 		"antiscan-aggregate.service",
 		"antiscan-ipset-restore.service",

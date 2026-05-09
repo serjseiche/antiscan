@@ -38,11 +38,11 @@ func (s *InstallerService) EnsureDependencies() error {
 	return nil
 }
 
-// CheckNoUFW returns an error if UFW is detected. traffic-guard requires direct iptables access.
+// CheckNoUFW returns an error if UFW is detected. antiscan-simple requires direct iptables access.
 func (s *InstallerService) CheckNoUFW() error {
 	if s.commandExists("ufw") {
 		return fmt.Errorf(
-			"UFW обнаружен в системе. traffic-guard работает только с iptables напрямую.\n" +
+			"UFW обнаружен в системе. antiscan-simple работает только с iptables напрямую.\n" +
 				"Удалите UFW перед установкой:\n" +
 				"  Debian/Ubuntu: sudo apt remove --purge ufw\n" +
 				"  RHEL/CentOS:   sudo yum remove ufw",

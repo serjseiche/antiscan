@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// UpdaterService manages the traffic-guard-update systemd timer.
+// UpdaterService manages the antiscan-simple-update systemd timer.
 type UpdaterService struct {
 	logger zerolog.Logger
 	cmdSvc *CommandService
@@ -50,7 +50,7 @@ func (s *UpdaterService) Setup(interval string) error {
 		s.logger.Warn().Err(err).Msg("daemon-reload завершился с ошибкой")
 	}
 
-	if err := s.cmdSvc.Run("systemctl", "enable", "--now", "traffic-guard-update.timer"); err != nil {
+	if err := s.cmdSvc.Run("systemctl", "enable", "--now", "antiscan-simple-update.timer"); err != nil {
 		return fmt.Errorf("не удалось включить таймер обновления: %w", err)
 	}
 	s.logger.Info().Str("interval", systemdInterval).Msg("Таймер автообновления включён")

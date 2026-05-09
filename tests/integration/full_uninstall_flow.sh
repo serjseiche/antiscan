@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BIN_PATH="${TRAFFIC_GUARD_BIN:-${ROOT_DIR}/bin/traffic-guard}"
+BIN_PATH="${ANTISCAN_SIMPLE_BIN:-${ROOT_DIR}/bin/antiscan-simple}"
 ANTISCANNER_URL="https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list"
 GOV_NETWORKS_URL="https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/government_networks.list"
 log() {
@@ -46,7 +46,7 @@ build_binary_if_needed() {
   fi
 
   mkdir -p "$(dirname "${BIN_PATH}")"
-  log "Building traffic-guard binary at ${BIN_PATH}"
+  log "Building antiscan-simple binary at ${BIN_PATH}"
   (cd "${ROOT_DIR}" && go build -o "${BIN_PATH}" ./cmd)
 }
 
@@ -178,7 +178,7 @@ run_full_install() {
   assert_file_exists /etc/ipset.conf
   assert_file_exists /etc/systemd/system/antiscan-ipset-restore.service
 
-  # Logging setup in traffic-guard is best-effort. On minimal images without
+  # Logging setup in antiscan-simple is best-effort. On minimal images without
   # rsyslog directories, full still succeeds and uninstall must remain testable.
   if [[ -d /etc/rsyslog.d ]]; then
     if [[ -f /etc/rsyslog.d/10-iptables-scanners.conf ]]; then

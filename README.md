@@ -53,7 +53,7 @@
 curl -fsSL https://raw.githubusercontent.com/serj1974-maker/antiscan/master/install.sh | sudo bash
 
 # 2. Запуск с базовой защитой
-sudo traffic-guard full \
+sudo antiscan-simple full \
   -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list
 
 # 3. (Опционально) Проверка логов через несколько минут
@@ -76,21 +76,21 @@ curl -fsSL https://raw.githubusercontent.com/serj1974-maker/antiscan/master/inst
 wget -qO- https://raw.githubusercontent.com/serj1974-maker/antiscan/master/install.sh | sudo bash
 ```
 
-Скрипт автоматически определит архитектуру (amd64, 386, arm, arm64), скачает подходящий бинарник и установит его в `/usr/local/bin/traffic-guard`.
+Скрипт автоматически определит архитектуру (amd64, 386, arm, arm64), скачает подходящий бинарник и установит его в `/usr/local/bin/antiscan-simple`.
 
 ### Ручная установка
 
 1. Скачайте нужный бинарник из [последнего релиза](https://github.com/serj1974-maker/antiscan/releases/latest):
-   - `traffic-guard-linux-amd64` — для 64-битных систем
-   - `traffic-guard-linux-386` — для 32-битных систем
-   - `traffic-guard-linux-arm` — для ARM
-   - `traffic-guard-linux-arm64` — для ARM64
+   - `antiscan-simple-linux-amd64` — для 64-битных систем
+   - `antiscan-simple-linux-386` — для 32-битных систем
+   - `antiscan-simple-linux-arm` — для ARM
+   - `antiscan-simple-linux-arm64` — для ARM64
 
 2. Установите:
 
 ```bash
-sudo mv traffic-guard-linux-* /usr/local/bin/traffic-guard
-sudo chmod +x /usr/local/bin/traffic-guard
+sudo mv antiscan-simple-linux-* /usr/local/bin/antiscan-simple
+sudo chmod +x /usr/local/bin/antiscan-simple
 ```
 
 ---
@@ -111,7 +111,7 @@ sudo chmod +x /usr/local/bin/traffic-guard
 Базовая блокировка:
 
 ```bash
-sudo traffic-guard full \
+sudo antiscan-simple full \
   -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/government_networks.list \
   -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list
 ```
@@ -119,7 +119,7 @@ sudo traffic-guard full \
 С включённым логированием:
 
 ```bash
-sudo traffic-guard full \
+sudo antiscan-simple full \
   -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/government_networks.list \
   -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list \
   --enable-logging
@@ -134,7 +134,7 @@ cat > /tmp/my-blocklist.txt <<EOF
 10.0.0.0/8
 EOF
 
-sudo traffic-guard full -u file:///tmp/my-blocklist.txt
+sudo antiscan-simple full -u file:///tmp/my-blocklist.txt
 ```
 
 ### Опции
@@ -149,7 +149,7 @@ sudo traffic-guard full -u file:///tmp/my-blocklist.txt
 
 ## Удаление (uninstall)
 
-Команда `uninstall` пошагово удаляет все изменения, внесённые TrafficGuard:
+Команда `uninstall` пошагово удаляет все изменения, внесённые AntiscanSimple:
 
 - правила и цепочку `SCANNERS-BLOCK` из iptables
 - набор `ipset` (`SCANNERS-BLOCK-V4`) и `/etc/ipset.conf`
@@ -163,13 +163,13 @@ sudo traffic-guard full -u file:///tmp/my-blocklist.txt
 
 ```bash
 # Интерактивное удаление
-sudo traffic-guard uninstall
+sudo antiscan-simple uninstall
 
 # Удаление без подтверждения
-sudo traffic-guard uninstall --yes
+sudo antiscan-simple uninstall --yes
 
 # Удаление с очисткой логов
-sudo traffic-guard uninstall --yes --remove-logs
+sudo antiscan-simple uninstall --yes --remove-logs
 ```
 
 ---

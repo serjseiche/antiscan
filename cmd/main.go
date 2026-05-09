@@ -31,7 +31,7 @@ func main() {
 	logger.SetGlobalLogger(log)
 
 	rootCmd := &cobra.Command{
-		Use:     "traffic-guard",
+		Use:     "antiscan-simple",
 		Short:   "Инструмент для управления блокировкой сканеров через iptables и ipset",
 		Long:    `Утилита для скачивания списков подсетей сканеров и настройки правил iptables/ipset для их блокировки.`,
 		Version: version,
@@ -60,12 +60,12 @@ func main() {
 
 	uninstallCmd := &cobra.Command{
 		Use:   "uninstall",
-		Short: "Удалить все изменения, внесённые traffic-guard",
-		Long:  `Удаляет цепочки iptables/ipset, systemd сервисы и конфигурационные файлы, созданные traffic-guard.`,
+		Short: "Удалить все изменения, внесённые antiscan-simple",
+		Long:  `Удаляет цепочки iptables/ipset, systemd сервисы и конфигурационные файлы, созданные antiscan-simple.`,
 		Run:   runUninstall,
 	}
 	uninstallCmd.Flags().BoolVar(&confirmYes, "yes", false, "Подтвердить удаление без интерактивного запроса")
-	uninstallCmd.Flags().BoolVar(&removeLogs, "remove-logs", false, "Удалить логи traffic-guard из /var/log")
+	uninstallCmd.Flags().BoolVar(&removeLogs, "remove-logs", false, "Удалить логи antiscan-simple из /var/log")
 
 	statusCmd := &cobra.Command{
 		Use:   "status",
@@ -203,7 +203,7 @@ func runUpdate(cmd *cobra.Command, args []string) {
 
 	cfg, err := state.Load()
 	if err != nil {
-		log.Fatal().Msg("Не сконфигурировано, запустите traffic-guard full")
+		log.Fatal().Msg("Не сконфигурировано, запустите antiscan-simple full")
 	}
 
 	cmdSvc := service.NewCommandService(log.Logger)
@@ -251,7 +251,7 @@ func runStatus(cmd *cobra.Command, args []string) {
 
 func runUninstall(cmd *cobra.Command, args []string) {
 	log := logger.Global()
-	log.Info().Msg("=== Удаление traffic-guard ===")
+	log.Info().Msg("=== Удаление antiscan-simple ===")
 
 	cmdSvc := service.NewCommandService(log.Logger)
 	installer := service.NewInstallerService(log.Logger)
@@ -262,7 +262,7 @@ func runUninstall(cmd *cobra.Command, args []string) {
 	}
 
 	if !confirmYes {
-		fmt.Print("Это удалит правила traffic-guard, systemd-сервисы и конфигурацию. Продолжить? [y/N]: ")
+		fmt.Print("Это удалит правила antiscan-simple, systemd-сервисы и конфигурацию. Продолжить? [y/N]: ")
 		if !confirmFromStdin() {
 			log.Info().Msg("Удаление отменено пользователем")
 			return

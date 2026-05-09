@@ -4,7 +4,7 @@ package service
 const (
 	// IpsetRestoreServiceTemplate is the systemd service for restoring ipset on boot
 	IpsetRestoreServiceTemplate = `[Unit]
-Description=Restore TrafficGuard ipset configuration
+Description=Restore AntiscanSimple ipset configuration
 Before=netfilter-persistent.service
 DefaultDependencies=no
 
@@ -21,7 +21,7 @@ RequiredBy=netfilter-persistent.service
 
 	// AggregateLogsServiceTemplate is the systemd service for log aggregation
 	AggregateLogsServiceTemplate = `[Unit]
-Description=TrafficGuard Log Aggregator
+Description=AntiscanSimple Log Aggregator
 After=rsyslog.service
 
 [Service]
@@ -33,7 +33,7 @@ StandardError=journal
 
 	// AggregateLogsTimerTemplate is the systemd timer for log aggregation
 	AggregateLogsTimerTemplate = `[Unit]
-Description=TrafficGuard Log Aggregator Timer
+Description=AntiscanSimple Log Aggregator Timer
 Requires=antiscan-aggregate.service
 
 [Timer]
@@ -47,7 +47,7 @@ WantedBy=timers.target
 
 	// AggregateLogsScriptTemplate is the bash script for log aggregation
 	AggregateLogsScriptTemplate = `#!/bin/bash
-# TrafficGuard Log Aggregation Script
+# AntiscanSimple Log Aggregation Script
 # Output CSV format: DATETIME|IP_ADDRESS|ASN|NETNAME|PORT
 # Each blocked connection is appended as a separate row (no deduplication).
 
@@ -163,8 +163,8 @@ const (
 	AggregateLogsScriptPath  = "/usr/local/bin/antiscan-aggregate-logs.sh"
 	RsyslogConfigPath        = "/etc/rsyslog.d/10-iptables-scanners.conf"
 	LogrotateConfigPath      = "/etc/logrotate.d/iptables-scanners"
-	UpdateServicePath        = "/etc/systemd/system/traffic-guard-update.service"
-	UpdateTimerPath          = "/etc/systemd/system/traffic-guard-update.timer"
+	UpdateServicePath        = "/etc/systemd/system/antiscan-simple-update.service"
+	UpdateTimerPath          = "/etc/systemd/system/antiscan-simple-update.timer"
 	DockerRulesServicePath   = "/etc/systemd/system/antiscan-docker-rules.service"
 	DockerRulesTimerPath     = "/etc/systemd/system/antiscan-docker-rules.timer"
 )
@@ -172,13 +172,13 @@ const (
 // Update systemd unit templates
 const (
 	UpdateServiceTemplate = `[Unit]
-Description=Update traffic-guard scanner block lists
+Description=Update antiscan-simple scanner block lists
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/traffic-guard update
+ExecStart=/usr/local/bin/antiscan-simple update
 
 [Install]
 WantedBy=multi-user.target
@@ -187,7 +187,7 @@ WantedBy=multi-user.target
 	// UpdateTimerTemplate is the systemd timer for auto-updates.
 	// {interval} will be replaced with the actual interval (e.g. "24h", "30min").
 	UpdateTimerTemplate = `[Unit]
-Description=Update traffic-guard scanner block lists timer
+Description=Update antiscan-simple scanner block lists timer
 
 [Timer]
 OnBootSec=15min
