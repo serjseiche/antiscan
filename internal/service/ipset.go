@@ -119,18 +119,6 @@ func (s *IpsetService) Save(path string) error {
 	return nil
 }
 
-// Restore restores ipset configuration from file
-func (s *IpsetService) Restore(path string) error {
-	s.logger.Info().Str("path", path).Msg("Загрузка конфигурации ipset")
-
-	if err := s.ipsetCmd.Restore(path); err != nil {
-		return fmt.Errorf("failed to restore ipset: %w", err)
-	}
-
-	s.logger.Info().Str("path", path).Msg("Конфигурация ipset загружена")
-	return nil
-}
-
 // CreateRestoreService creates systemd service to restore ipset on boot
 func (s *IpsetService) CreateRestoreService() error {
 	s.logger.Info().Msg("Создание systemd сервиса для загрузки конфигурации ipset")

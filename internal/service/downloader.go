@@ -69,7 +69,7 @@ func (d *Downloader) Download(urls []string) (*domain.NetworkList, error) {
 			}
 			seenSubnets[subnet] = true
 
-			networks.Add(subnet, false)
+			networks.Add(subnet)
 			added++
 		}
 

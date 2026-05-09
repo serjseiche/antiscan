@@ -113,18 +113,6 @@ func (s *IptablesCommandService) FlushChain(version IPVersion, table Table, chai
 	return s.cmdSvc.Run(cmd, args...)
 }
 
-// FlushAll flushes all rules from all chains
-func (s *IptablesCommandService) FlushAll(version IPVersion, table Table) error {
-	cmd := s.getCommand(version)
-	s.logger.Info().
-		Str("version", string(version)).
-		Str("table", string(table)).
-		Msg("Flushing all chains")
-
-	args := []string{"-t", string(table), "-F"}
-	return s.cmdSvc.Run(cmd, args...)
-}
-
 // ChainExists checks if a chain exists
 func (s *IptablesCommandService) ChainExists(version IPVersion, table Table, chainName string) bool {
 	cmd := s.getCommand(version)
@@ -211,18 +199,6 @@ func (s *IptablesCommandService) ListChain(version IPVersion, table Table, chain
 	return s.cmdSvc.RunOutput(cmd, args...)
 }
 
-// ListAllChains lists all chains in a table
-func (s *IptablesCommandService) ListAllChains(version IPVersion, table Table) (string, error) {
-	cmd := s.getCommand(version)
-	s.logger.Debug().
-		Str("version", string(version)).
-		Str("table", string(table)).
-		Msg("Listing all chains")
-
-	args := []string{"-t", string(table), "-L", "-n", "-v"}
-	return s.cmdSvc.RunOutput(cmd, args...)
-}
-
 // Save saves iptables rules to a file
 func (s *IptablesCommandService) Save(version IPVersion, path string) error {
 	cmd := s.getCommand(version)
@@ -232,17 +208,6 @@ func (s *IptablesCommandService) Save(version IPVersion, path string) error {
 		Msg("Saving iptables rules")
 
 	return s.cmdSvc.RunShell(fmt.Sprintf("%s-save > %s", cmd, path))
-}
-
-// Restore restores iptables rules from a file
-func (s *IptablesCommandService) Restore(version IPVersion, path string) error {
-	cmd := s.getCommand(version)
-	s.logger.Info().
-		Str("version", string(version)).
-		Str("path", path).
-		Msg("Restoring iptables rules")
-
-	return s.cmdSvc.RunShell(fmt.Sprintf("%s-restore < %s", cmd, path))
 }
 
 // RuleBuilder helps build iptables rules
@@ -257,68 +222,13 @@ func NewRuleBuilder() *RuleBuilder {
 	}
 }
 
-// Protocol sets the protocol
-func (rb *RuleBuilder) Protocol(proto string) *RuleBuilder {
-	rb.spec = append(rb.spec, "-p", proto)
-	return rb
-}
-
-// Source sets the source address
-func (rb *RuleBuilder) Source(addr string) *RuleBuilder {
-	rb.spec = append(rb.spec, "-s", addr)
-	return rb
-}
-
-// Destination sets the destination address
-func (rb *RuleBuilder) Destination(addr string) *RuleBuilder {
-	rb.spec = append(rb.spec, "-d", addr)
-	return rb
-}
-
-// SourcePort sets the source port
-func (rb *RuleBuilder) SourcePort(port string) *RuleBuilder {
-	rb.spec = append(rb.spec, "--sport", port)
-	return rb
-}
-
-// DestinationPort sets the destination port
-func (rb *RuleBuilder) DestinationPort(port string) *RuleBuilder {
-	rb.spec = append(rb.spec, "--dport", port)
-	return rb
-}
-
-// InInterface sets the input interface
-func (rb *RuleBuilder) InInterface(iface string) *RuleBuilder {
-	rb.spec = append(rb.spec, "-i", iface)
-	return rb
-}
-
-// OutInterface sets the output interface
-func (rb *RuleBuilder) OutInterface(iface string) *RuleBuilder {
-	rb.spec = append(rb.spec, "-o", iface)
-	return rb
-}
-
-// Match adds a match module
-func (rb *RuleBuilder) Match(module string, options ...string) *RuleBuilder {
-	rb.spec = append(rb.spec, "-m", module)
-	rb.spec = append(rb.spec, options...)
-	return rb
-}
-
 // MatchSet adds ipset match
 func (rb *RuleBuilder) MatchSet(setName, flag string) *RuleBuilder {
 	rb.spec = append(rb.spec, "-m", "set", "--match-set", setName, flag)
 	return rb
 }
 
-// MatchState adds state match
-func (rb *RuleBuilder) MatchState(states ...string) *RuleBuilder {
-	rb.spec = append(rb.spec, "-m", "state", "--state", strings.Join(states, ","))
-	return rb
-}
-
-// MatchConntrack adds conntrack match
+// Jump sets the target/jump
 func (rb *RuleBuilder) MatchConntrack(states ...string) *RuleBuilder {
 	rb.spec = append(rb.spec, "-m", "conntrack", "--ctstate", strings.Join(states, ","))
 	return rb
@@ -357,39 +267,12 @@ func (rb *RuleBuilder) LogLevel(level string) *RuleBuilder {
 	return rb
 }
 
-// Comment adds a comment
-func (rb *RuleBuilder) Comment(comment string) *RuleBuilder {
-	rb.spec = append(rb.spec, "-m", "comment", "--comment", comment)
-	return rb
-}
-
 // Build returns the rule specification
 func (rb *RuleBuilder) Build() []string {
 	return rb.spec
 }
 
 // Helper methods for common operations
-
-// AddDropRuleForSet adds a DROP rule for ipset match
-func (s *IptablesCommandService) AddDropRuleForSet(version IPVersion, chainName, setName, flag string) error {
-	rule := NewRuleBuilder().
-		MatchSet(setName, flag).
-		Jump(TargetDrop).
-		Build()
-	return s.AppendRule(version, TableFilter, chainName, rule)
-}
-
-// AddLogRuleForSet adds a LOG rule for ipset match with rate limiting
-func (s *IptablesCommandService) AddLogRuleForSet(version IPVersion, chainName, setName, flag, logPrefix, rate, burst string) error {
-	rule := NewRuleBuilder().
-		MatchSet(setName, flag).
-		MatchLimit(rate, burst).
-		Jump(TargetLog).
-		LogPrefix(logPrefix).
-		LogLevel("4").
-		Build()
-	return s.InsertRule(version, TableFilter, chainName, 1, rule)
-}
 
 // LinkChainToInput links a custom chain to INPUT chain
 func (s *IptablesCommandService) LinkChainToInput(version IPVersion, chainName string, position int) error {
