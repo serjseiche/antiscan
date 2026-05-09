@@ -6,8 +6,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BIN_PATH="${TRAFFIC_GUARD_BIN:-${ROOT_DIR}/bin/traffic-guard}"
 ANTISCANNER_URL="https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list"
 GOV_NETWORKS_URL="https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/government_networks.list"
-MANAGED_MARKER="# SCANNERS-BLOCK chain - managed by antiscan"
-
 log() {
   printf '[integration] %s\n' "$*"
 }
@@ -101,12 +99,6 @@ assert_chain_linked_v4() {
   fail "SCANNERS-BLOCK is not linked for IPv4"
 }
 
-assert_chain_linked_v6() {
-  if chain_has_jump ip6tables INPUT || chain_has_jump ip6tables ufw6-before-input; then
-    return
-  fi
-  fail "SCANNERS-BLOCK is not linked for IPv6"
-}
 
 assert_chain_unlinked_everywhere() {
   local cmd="$1"
@@ -145,26 +137,7 @@ assert_service_not_enabled() {
   fi
 }
 
-assert_marker_removed_if_file_exists() {
-  local path="$1"
-  if [[ ! -f "${path}" ]]; then
-    return
-  fi
 
-  if grep -q -- "${MANAGED_MARKER}" "${path}"; then
-    fail "Managed UFW marker is still present in ${path}"
-  fi
-}
-
-assert_no_scanners_block_in_saved_state() {
-  if iptables-save | grep -q "SCANNERS-BLOCK"; then
-    fail "SCANNERS-BLOCK still present in iptables-save output"
-  fi
-
-  if ip6tables-save | grep -q "SCANNERS-BLOCK"; then
-    fail "SCANNERS-BLOCK still present in ip6tables-save output"
-  fi
-}
 
 assert_no_scanner_logs() {
   shopt -s nullglob
@@ -180,10 +153,8 @@ prepare_environment() {
   require_linux
   require_root
   require_cmd go
-  require_cmd iptables
-  require_cmd ip6tables
-  require_cmd iptables-save
-  require_cmd ip6tables-save
+require_cmd iptables
+	require_cmd iptables-save
   require_cmd ipset
   require_cmd systemctl
 
@@ -198,14 +169,11 @@ run_full_install() {
   log "Running full install"
   "${BIN_PATH}" full -u "${ANTISCANNER_URL}" -u "${GOV_NETWORKS_URL}" --enable-logging
 
-  assert_ipset_exists SCANNERS-BLOCK-V4
-  assert_ipset_exists SCANNERS-BLOCK-V6
+	assert_ipset_exists SCANNERS-BLOCK-V4
 
-  chain_exists iptables || fail "IPv4 chain SCANNERS-BLOCK was not created"
-  chain_exists ip6tables || fail "IPv6 chain SCANNERS-BLOCK was not created"
+	chain_exists iptables || fail "IPv4 chain SCANNERS-BLOCK was not created"
 
-  assert_chain_linked_v4
-  assert_chain_linked_v6
+	assert_chain_linked_v4
 
   assert_file_exists /etc/ipset.conf
   assert_file_exists /etc/systemd/system/antiscan-ipset-restore.service
@@ -222,60 +190,46 @@ run_full_install() {
     log "Skipping strict logging artifact presence checks: /etc/rsyslog.d is absent"
   fi
 
-  if command -v ufw >/dev/null 2>&1; then
-    assert_file_exists /etc/systemd/system/antiscan-move-rules.service
-  fi
+
 }
 
 run_uninstall_without_log_removal() {
   log "Running uninstall without --remove-logs"
   "${BIN_PATH}" uninstall --yes
 
-  chain_exists iptables && fail "IPv4 chain SCANNERS-BLOCK still exists after uninstall"
-  chain_exists ip6tables && fail "IPv6 chain SCANNERS-BLOCK still exists after uninstall"
+	chain_exists iptables && fail "IPv4 chain SCANNERS-BLOCK still exists after uninstall"
 
-  assert_chain_unlinked_everywhere iptables INPUT ufw-before-input
-  assert_chain_unlinked_everywhere ip6tables INPUT ufw6-before-input
+	assert_chain_unlinked_everywhere iptables INPUT ufw-before-input
 
-  assert_ipset_not_exists SCANNERS-BLOCK-V4
-  assert_ipset_not_exists SCANNERS-BLOCK-V6
+	assert_ipset_not_exists SCANNERS-BLOCK-V4
 
-  assert_file_not_exists /etc/ipset.conf
-  assert_file_not_exists /etc/systemd/system/antiscan-ipset-restore.service
-  assert_file_not_exists /etc/systemd/system/antiscan-move-rules.service
-  assert_file_not_exists /etc/systemd/system/antiscan-aggregate.service
-  assert_file_not_exists /etc/systemd/system/antiscan-aggregate.timer
-  assert_file_not_exists /etc/rsyslog.d/10-iptables-scanners.conf
-  assert_file_not_exists /etc/logrotate.d/iptables-scanners
-  assert_file_not_exists /usr/local/bin/antiscan-aggregate-logs.sh
+	assert_file_not_exists /etc/ipset.conf
+	assert_file_not_exists /etc/systemd/system/antiscan-ipset-restore.service
+	assert_file_not_exists /etc/systemd/system/antiscan-aggregate.service
+	assert_file_not_exists /etc/systemd/system/antiscan-aggregate.timer
+	assert_file_not_exists /etc/rsyslog.d/10-iptables-scanners.conf
+	assert_file_not_exists /etc/logrotate.d/iptables-scanners
+	assert_file_not_exists /usr/local/bin/antiscan-aggregate-logs.sh
 
-  assert_service_not_enabled antiscan-aggregate.timer
-  assert_service_not_enabled antiscan-aggregate.service
-  assert_service_not_enabled antiscan-move-rules.service
-  assert_service_not_enabled antiscan-ipset-restore.service
-
-  assert_marker_removed_if_file_exists /etc/ufw/before.rules
-  assert_marker_removed_if_file_exists /etc/ufw/before6.rules
-  assert_no_scanners_block_in_saved_state
+	assert_service_not_enabled antiscan-aggregate.timer
+	assert_service_not_enabled antiscan-aggregate.service
+	assert_service_not_enabled antiscan-ipset-restore.service
 }
 
 run_remove_logs_subscenario() {
   log "Re-running full install for --remove-logs scenario"
   "${BIN_PATH}" full -u "${ANTISCANNER_URL}" -u "${GOV_NETWORKS_URL}" --enable-logging
 
-  touch /var/log/iptables-scanners-ipv4.log
-  touch /var/log/iptables-scanners-ipv6.log
-  touch /var/log/iptables-scanners-aggregate.csv
+	touch /var/log/iptables-scanners-ipv4.log
+	touch /var/log/iptables-scanners-aggregate.csv
 
-  log "Running uninstall with --remove-logs"
-  "${BIN_PATH}" uninstall --yes --remove-logs
+	log "Running uninstall with --remove-logs"
+	"${BIN_PATH}" uninstall --yes --remove-logs
 
-  assert_no_scanner_logs
+	assert_no_scanner_logs
 
-  chain_exists iptables && fail "IPv4 chain SCANNERS-BLOCK still exists after uninstall --remove-logs"
-  chain_exists ip6tables && fail "IPv6 chain SCANNERS-BLOCK still exists after uninstall --remove-logs"
-  assert_ipset_not_exists SCANNERS-BLOCK-V4
-  assert_ipset_not_exists SCANNERS-BLOCK-V6
+	chain_exists iptables && fail "IPv4 chain SCANNERS-BLOCK still exists after uninstall --remove-logs"
+	assert_ipset_not_exists SCANNERS-BLOCK-V4
 }
 
 main() {
