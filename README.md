@@ -181,14 +181,14 @@ sudo traffic-guard uninstall --yes --remove-logs
 При указании `--enable-logging` создаются:
 
 1. **`/etc/rsyslog.d/10-iptables-scanners.conf`** — конфигурация rsyslog с кастомным шаблоном (RFC3339 timestamp)
-2. **`/etc/logrotate.d/iptables-scanners`** — ротация логов (каждый час, хранится 2 часа)
+2. **`/etc/logrotate.d/iptables-scanners`** — ротация логов (ежедневно, хранится 7 дней)
 3. **`/usr/local/bin/antiscan-aggregate-logs.sh`** — скрипт агрегации
 4. **`/etc/systemd/system/antiscan-aggregate.service`** — systemd service
-5. **`/etc/systemd/system/antiscan-aggregate.timer`** — systemd timer (каждые 10 секунд)
+5. **`/etc/systemd/system/antiscan-aggregate.timer`** — systemd timer (каждые 30 секунд)
 
 ### Файлы логов
 
-- **`/var/log/iptables-scanners-ipv4.log`** — сырые логи IPv4 (обрабатываются таймером каждые 10 сек и очищаются)
+- **`/var/log/iptables-scanners-ipv4.log`** — сырые логи IPv4 (обрабатываются таймером каждые 30 сек и очищаются)
 - **`/var/log/iptables-scanners-aggregate.csv`** — CSV с историей заблокированных подключений
 
 ### Формат агрегированного CSV
