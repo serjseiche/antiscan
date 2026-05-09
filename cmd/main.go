@@ -102,7 +102,7 @@ func runFull(cmd *cobra.Command, args []string) {
 	downloader := service.NewDownloader(log.Logger)
 	ipsetSvc := service.NewIpsetService(log.Logger, cmdSvc)
 	iptablesSvc := service.NewIptablesService(log.Logger, cmdSvc, enableLogging)
-	loggingSvc := service.NewLoggingService(log.Logger)
+	loggingSvc := service.NewLoggingService(log.Logger, cmdSvc)
 
 	// Check root
 	if err := installer.CheckRootPrivileges(); err != nil {

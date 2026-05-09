@@ -3,7 +3,6 @@ package service
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/rs/zerolog"
 )
@@ -11,12 +10,14 @@ import (
 // LoggingService handles logging configuration setup
 type LoggingService struct {
 	logger zerolog.Logger
+	cmdSvc *CommandService
 }
 
 // NewLoggingService creates a new logging service
-func NewLoggingService(logger zerolog.Logger) *LoggingService {
+func NewLoggingService(logger zerolog.Logger, cmdSvc *CommandService) *LoggingService {
 	return &LoggingService{
 		logger: logger,
+		cmdSvc: cmdSvc,
 	}
 }
 
@@ -88,10 +89,10 @@ func (s *LoggingService) createLogFiles() error {
 			f.Close()
 
 			// Set permissions
-			if err := exec.Command("chown", "syslog:adm", logFile).Run(); err != nil {
+			if err := s.cmdSvc.Run("chown", "syslog:adm", logFile); err != nil {
 				s.logger.Warn().Err(err).Str("file", logFile).Msg("Failed to chown log file")
 			}
-			if err := exec.Command("chmod", "640", logFile).Run(); err != nil {
+			if err := s.cmdSvc.Run("chmod", "640", logFile); err != nil {
 				s.logger.Warn().Err(err).Str("file", logFile).Msg("Failed to chmod log file")
 			}
 
@@ -119,7 +120,7 @@ func (s *LoggingService) setupAggregationScript() error {
 	}
 
 	// Ensure it's executable
-	if err := exec.Command("chmod", "+x", AggregateLogsScriptPath).Run(); err != nil {
+	if err := s.cmdSvc.Run("chmod", "+x", AggregateLogsScriptPath); err != nil {
 		return fmt.Errorf("failed to make script executable: %w", err)
 	}
 
@@ -142,16 +143,16 @@ func (s *LoggingService) setupCronJob() error {
 	s.logger.Info().Str("path", AggregateLogsTimerPath).Msg("Создан systemd timer")
 
 	// Reload systemd daemon
-	if err := exec.Command("systemctl", "daemon-reload").Run(); err != nil {
+	if err := s.cmdSvc.DaemonReload(); err != nil {
 		s.logger.Warn().Err(err).Msg("Не удалось перезапустить systemd daemon")
 	}
 
 	// Enable and start timer
-	if err := exec.Command("systemctl", "enable", "antiscan-aggregate.timer").Run(); err != nil {
+	if err := s.cmdSvc.Run("systemctl", "enable", "antiscan-aggregate.timer"); err != nil {
 		s.logger.Warn().Err(err).Msg("Не удалось включить antiscan-aggregate")
 	}
 
-	if err := exec.Command("systemctl", "start", "antiscan-aggregate.timer").Run(); err != nil {
+	if err := s.cmdSvc.Run("systemctl", "start", "antiscan-aggregate.timer"); err != nil {
 		s.logger.Warn().Err(err).Msg("Не удалось включить timer")
 	}
 
@@ -161,7 +162,7 @@ func (s *LoggingService) setupCronJob() error {
 
 // reloadRsyslog restarts rsyslog service
 func (s *LoggingService) reloadRsyslog() error {
-	if err := exec.Command("systemctl", "restart", "rsyslog").Run(); err != nil {
+	if err := s.cmdSvc.RestartService("rsyslog"); err != nil {
 		return err
 	}
 	s.logger.Info().Msg("Rsyslog перезапущен")
