@@ -1,4 +1,4 @@
-// Package state provides persistent storage for traffic-guard configuration.
+// Package state provides persistent storage for antiscan-simple configuration.
 package state
 
 import (
@@ -18,12 +18,12 @@ const (
 
 // configDir is the directory for the state file.
 // Exposed as a variable so tests can override it with t.TempDir().
-var configDir = "/etc/traffic-guard"
+var configDir = "/etc/antiscan-simple"
 
 // ErrNotFound indicates the state file does not exist.
 var ErrNotFound = errors.New("state file not found")
 
-// Config is the persisted traffic-guard configuration.
+// Config is the persisted antiscan-simple configuration.
 type Config struct {
 	URLs           []string  `json:"urls"`
 	EnableLogging  bool      `json:"enable_logging"`

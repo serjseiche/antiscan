@@ -163,8 +163,8 @@ const (
 	AggregateLogsScriptPath  = "/usr/local/bin/antiscan-aggregate-logs.sh"
 	RsyslogConfigPath        = "/etc/rsyslog.d/10-iptables-scanners.conf"
 	LogrotateConfigPath      = "/etc/logrotate.d/iptables-scanners"
-	UpdateServicePath        = "/etc/systemd/system/traffic-guard-update.service"
-	UpdateTimerPath          = "/etc/systemd/system/traffic-guard-update.timer"
+	UpdateServicePath        = "/etc/systemd/system/antiscan-update.service"
+	UpdateTimerPath          = "/etc/systemd/system/antiscan-update.timer"
 	DockerRulesServicePath   = "/etc/systemd/system/antiscan-docker-rules.service"
 	DockerRulesTimerPath     = "/etc/systemd/system/antiscan-docker-rules.timer"
 )
@@ -172,13 +172,13 @@ const (
 // Update systemd unit templates
 const (
 	UpdateServiceTemplate = `[Unit]
-Description=Update traffic-guard scanner block lists
+Description=Update antiscan-simple scanner block lists
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/traffic-guard update
+ExecStart=/usr/local/bin/antiscan-simple update
 
 [Install]
 WantedBy=multi-user.target
@@ -187,7 +187,7 @@ WantedBy=multi-user.target
 	// UpdateTimerTemplate is the systemd timer for auto-updates.
 	// {interval} will be replaced with the actual interval (e.g. "24h", "30min").
 	UpdateTimerTemplate = `[Unit]
-Description=Update traffic-guard scanner block lists timer
+Description=Update antiscan-simple scanner block lists timer
 
 [Timer]
 OnBootSec=15min

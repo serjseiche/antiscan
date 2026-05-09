@@ -9,8 +9,8 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Константы
-REPO="dotX12/traffic-guard"
-BINARY_NAME="traffic-guard"
+REPO="serj1974-maker/antiscan"
+BINARY_NAME="antiscan-simple"
 INSTALL_DIR="/usr/local/bin"
 LATEST_RELEASE_URL="https://github.com/${REPO}/releases/latest/download"
 DEV_MODE=false

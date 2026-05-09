@@ -1,4 +1,4 @@
-module github.com/dotX12/traffic-guard
+module github.com/serj1974-maker/antiscan
 
 go 1.25.3
 

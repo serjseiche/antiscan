@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dotX12/traffic-guard/internal/state"
+	"github.com/serj1974-maker/antiscan/internal/state"
 	"github.com/rs/zerolog"
 )
 
-// StatusService renders the current traffic-guard protection state.
+// StatusService renders the current antiscan-simple protection state.
 type StatusService struct {
 	logger      zerolog.Logger
 	cmdSvc      *CommandService
@@ -59,7 +59,7 @@ func (s *StatusService) Render(w io.Writer) error {
 	cfg, err := state.Load()
 	switch {
 	case errors.Is(err, state.ErrNotFound):
-		fmt.Fprintln(w, "Источники списков: не сконфигурировано, запустите traffic-guard full")
+		fmt.Fprintln(w, "Источники списков: не сконфигурировано, запустите antiscan-simple full")
 		fmt.Fprintln(w, "Последнее обновление: —")
 	case err != nil:
 		fmt.Fprintf(w, "Источники списков: ошибка чтения state: %v\n", err)

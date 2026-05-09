@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/dotX12/traffic-guard/internal/state"
+	"github.com/serj1974-maker/antiscan/internal/state"
 	"github.com/rs/zerolog"
 )
 
@@ -60,8 +60,8 @@ func (s *UninstallerService) stopAndDisableServices() {
 	}
 
 	services := []string{
-		"traffic-guard-update.timer",
-		"traffic-guard-update.service",
+		"antiscan-update.timer",
+		"antiscan-update.service",
 		"antiscan-aggregate.timer",
 		"antiscan-aggregate.service",
 		"antiscan-ipset-restore.service",
