@@ -58,6 +58,11 @@ func (d *Downloader) Download(urls []string) (*domain.NetworkList, error) {
 				continue
 			}
 
+			// Skip IPv6 (IPv4-only tool)
+			if strings.Contains(subnet, ":") {
+				continue
+			}
+
 			// Skip duplicates
 			if seenSubnets[subnet] {
 				continue
