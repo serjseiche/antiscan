@@ -23,59 +23,50 @@ func NewLoggingService(logger zerolog.Logger, cmdSvc *CommandService) *LoggingSe
 
 // Setup configures rsyslog, logrotate, and aggregation script
 func (s *LoggingService) Setup() error {
-	s.logger.Info().Msg("Настройка логирования")
+	s.logger.Info().Msg("Configuring logging")
 
-	// Create rsyslog config
 	if err := s.setupRsyslog(); err != nil {
 		return fmt.Errorf("failed to setup rsyslog: %w", err)
 	}
 
-	// Create log files
 	if err := s.createLogFiles(); err != nil {
 		return fmt.Errorf("failed to create log files: %w", err)
 	}
 
-	// Create logrotate config
 	if err := s.setupLogrotate(); err != nil {
 		return fmt.Errorf("failed to setup logrotate: %w", err)
 	}
 
-	// Create aggregation script
 	if err := s.setupAggregationScript(); err != nil {
 		return fmt.Errorf("failed to setup aggregation script: %w", err)
 	}
 
-	// Create cron job
-	if err := s.setupCronJob(); err != nil {
-		return fmt.Errorf("failed to setup cron job: %w", err)
+	if err := s.setupAggregationTimer(); err != nil {
+		return fmt.Errorf("failed to setup aggregation timer: %w", err)
 	}
 
-	// Restart rsyslog
 	if err := s.restartRsyslog(); err != nil {
-		s.logger.Warn().Err(err).Msg("Не удалось перезагрузить rsyslog, может потребоваться ручная перезагрузка")
+		s.logger.Warn().Err(err).Msg("Failed to restart rsyslog — may require manual restart")
 	}
 
-	s.logger.Info().Msg("Конфигурация логирования готова")
-	s.logger.Info().Msg("  Сырые логи: /var/log/iptables-scanners-ipv4.log")
-	s.logger.Info().Msg("  Агрегированные: /var/log/iptables-scanners-aggregate.csv (с ASN/netname, обновляются каждые 30 сек)")
-	s.logger.Info().Msg("  Rate limit: 10 entries/minute")
-	s.logger.Info().Msg("  Проверить статус: systemctl status antiscan-aggregate.timer")
+	s.logger.Info().Msg("Logging configured")
+	s.logger.Info().Msg("  Raw logs:        /var/log/iptables-scanners-ipv4.log")
+	s.logger.Info().Msg("  Aggregated CSV:  /var/log/iptables-scanners-aggregate.csv (updated every 30s)")
+	s.logger.Info().Msg("  Rate limit:      10 entries/minute")
+	s.logger.Info().Msg("  Timer status:    systemctl status antiscan-aggregate.timer")
 
 	return nil
 }
 
-// setupRsyslog creates rsyslog configuration
 func (s *LoggingService) setupRsyslog() error {
 	if err := os.WriteFile(RsyslogConfigPath, []byte(RsyslogConfigTemplate), 0644); err != nil {
 		return err
 	}
-	s.logger.Info().Str("path", RsyslogConfigPath).Msg("Конфиг rsyslog создан")
+	s.logger.Info().Str("path", RsyslogConfigPath).Msg("rsyslog config created")
 	return nil
 }
 
-// createLogFiles creates log files with proper permissions
 func (s *LoggingService) createLogFiles() error {
-	// Create empty log files with correct permissions
 	logFiles := []string{
 		IPv4LogPath,
 	}
@@ -88,7 +79,6 @@ func (s *LoggingService) createLogFiles() error {
 			}
 			f.Close()
 
-			// Set permissions
 			if err := s.cmdSvc.Run("chown", "syslog:adm", logFile); err != nil {
 				s.logger.Warn().Err(err).Str("file", logFile).Msg("Failed to chown log file")
 			}
@@ -96,75 +86,66 @@ func (s *LoggingService) createLogFiles() error {
 				s.logger.Warn().Err(err).Str("file", logFile).Msg("Failed to chmod log file")
 			}
 
-			s.logger.Info().Str("file", logFile).Msg("Создан лог файл")
+			s.logger.Info().Str("file", logFile).Msg("Log file created")
 		}
 	}
 
 	return nil
 }
 
-// setupLogrotate creates logrotate configuration
 func (s *LoggingService) setupLogrotate() error {
 	if err := os.WriteFile(LogrotateConfigPath, []byte(LogrotateConfigTemplate), 0644); err != nil {
 		return err
 	}
-
-	s.logger.Info().Str("path", LogrotateConfigPath).Msg("Создан logrotate конфиг")
+	s.logger.Info().Str("path", LogrotateConfigPath).Msg("logrotate config created")
 	return nil
 }
 
-// setupAggregationScript creates the log aggregation shell script
 func (s *LoggingService) setupAggregationScript() error {
 	if err := os.WriteFile(AggregateLogsScriptPath, []byte(AggregateLogsScriptTemplate), 0755); err != nil {
-		return fmt.Errorf("failed to write aggregator script: %w", err)
+		return fmt.Errorf("failed to write aggregation script: %w", err)
 	}
 
-	// Ensure it's executable
 	if err := s.cmdSvc.Run("chmod", "+x", AggregateLogsScriptPath); err != nil {
 		return fmt.Errorf("failed to make script executable: %w", err)
 	}
 
-	s.logger.Info().Str("path", AggregateLogsScriptPath).Msg("Создан скрипт агрегирования логов")
+	s.logger.Info().Str("path", AggregateLogsScriptPath).Msg("Aggregation script created")
 	return nil
 }
 
-// setupCronJob creates systemd timer for log aggregation (runs every 30 seconds)
-func (s *LoggingService) setupCronJob() error {
-	// Create systemd service
+// setupAggregationTimer creates a systemd service+timer that runs the aggregation script every 30 seconds.
+func (s *LoggingService) setupAggregationTimer() error {
 	if err := os.WriteFile(AggregateLogsServicePath, []byte(AggregateLogsServiceTemplate), 0644); err != nil {
 		return err
 	}
-	s.logger.Info().Str("path", AggregateLogsServicePath).Msg("Создан systemd сервис")
+	s.logger.Info().Str("path", AggregateLogsServicePath).Msg("Aggregation systemd service created")
 
-	// Create systemd timer
 	if err := os.WriteFile(AggregateLogsTimerPath, []byte(AggregateLogsTimerTemplate), 0644); err != nil {
 		return err
 	}
-	s.logger.Info().Str("path", AggregateLogsTimerPath).Msg("Создан systemd timer")
+	s.logger.Info().Str("path", AggregateLogsTimerPath).Msg("Aggregation systemd timer created")
 
-	// Reload systemd daemon
 	if err := s.cmdSvc.DaemonReload(); err != nil {
-		s.logger.Warn().Err(err).Msg("Не удалось перезапустить systemd daemon")
+		s.logger.Warn().Err(err).Msg("daemon-reload failed")
 	}
 
-	// Enable and start timer
 	if err := s.cmdSvc.Run("systemctl", "enable", "antiscan-aggregate.timer"); err != nil {
-		s.logger.Warn().Err(err).Msg("Не удалось включить antiscan-aggregate")
+		s.logger.Warn().Err(err).Msg("Failed to enable antiscan-aggregate.timer")
 	}
 
 	if err := s.cmdSvc.Run("systemctl", "start", "antiscan-aggregate.timer"); err != nil {
-		s.logger.Warn().Err(err).Msg("Не удалось включить timer")
+		s.logger.Warn().Err(err).Msg("Failed to start antiscan-aggregate.timer")
 	}
 
-	s.logger.Info().Msg("Systemd timer включен и запущен (каждые 30 секунд)")
+	s.logger.Info().Msg("Aggregation timer enabled (runs every 30 seconds)")
 	return nil
 }
 
-// restartRsyslog restarts rsyslog service
 func (s *LoggingService) restartRsyslog() error {
 	if err := s.cmdSvc.RestartService("rsyslog"); err != nil {
 		return err
 	}
-	s.logger.Info().Msg("Rsyslog перезапущен")
+	s.logger.Info().Msg("rsyslog restarted")
 	return nil
 }

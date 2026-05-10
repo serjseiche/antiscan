@@ -28,7 +28,7 @@ func NewUpdaterService(logger zerolog.Logger, cmdSvc *CommandService) *UpdaterSe
 func (s *UpdaterService) Setup(interval string) error {
 	d, err := ParseInterval(interval)
 	if err != nil {
-		return fmt.Errorf("неверный интервал %q: %w", interval, err)
+		return fmt.Errorf("invalid interval %q: %w", interval, err)
 	}
 
 	systemdInterval := FormatDurationForSystemd(d)
@@ -37,23 +37,23 @@ func (s *UpdaterService) Setup(interval string) error {
 	timerContent := strings.ReplaceAll(UpdateTimerTemplate, "{interval}", systemdInterval)
 
 	if err := os.WriteFile(UpdateServicePath, []byte(svcContent), 0644); err != nil {
-		return fmt.Errorf("не удалось записать %s: %w", UpdateServicePath, err)
+		return fmt.Errorf("failed to write %s: %w", UpdateServicePath, err)
 	}
-	s.logger.Info().Str("path", UpdateServicePath).Msg("Создан systemd сервис обновления")
+	s.logger.Info().Str("path", UpdateServicePath).Msg("Update systemd service created")
 
 	if err := os.WriteFile(UpdateTimerPath, []byte(timerContent), 0644); err != nil {
-		return fmt.Errorf("не удалось записать %s: %w", UpdateTimerPath, err)
+		return fmt.Errorf("failed to write %s: %w", UpdateTimerPath, err)
 	}
-	s.logger.Info().Str("path", UpdateTimerPath).Msg("Создан systemd таймер обновления")
+	s.logger.Info().Str("path", UpdateTimerPath).Msg("Update systemd timer created")
 
 	if err := s.cmdSvc.DaemonReload(); err != nil {
-		s.logger.Warn().Err(err).Msg("daemon-reload завершился с ошибкой")
+		s.logger.Warn().Err(err).Msg("daemon-reload failed")
 	}
 
 	if err := s.cmdSvc.Run("systemctl", "enable", "--now", "antiscan-simple-update.timer"); err != nil {
-		return fmt.Errorf("не удалось включить таймер обновления: %w", err)
+		return fmt.Errorf("failed to enable update timer: %w", err)
 	}
-	s.logger.Info().Str("interval", systemdInterval).Msg("Таймер автообновления включён")
+	s.logger.Info().Str("interval", systemdInterval).Msg("Auto-update timer enabled")
 	return nil
 }
 
@@ -63,16 +63,16 @@ func ParseInterval(s string) (time.Duration, error) {
 	if strings.HasSuffix(s, "d") {
 		days, err := strconv.Atoi(strings.TrimSuffix(s, "d"))
 		if err != nil || days <= 0 {
-			return 0, fmt.Errorf("ожидается формат вида 7d, 24h, 30m")
+			return 0, fmt.Errorf("expected format like 7d, 24h, 30m")
 		}
 		return time.Duration(days) * 24 * time.Hour, nil
 	}
 	d, err := time.ParseDuration(s)
 	if err != nil {
-		return 0, fmt.Errorf("ожидается формат вида 7d, 24h, 30m: %w", err)
+		return 0, fmt.Errorf("expected format like 7d, 24h, 30m: %w", err)
 	}
 	if d <= 0 {
-		return 0, fmt.Errorf("интервал должен быть положительным")
+		return 0, fmt.Errorf("interval must be positive")
 	}
 	return d, nil
 }

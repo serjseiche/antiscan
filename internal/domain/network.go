@@ -17,12 +17,13 @@ func (nl *NetworkList) Add(subnet string) {
 	nl.IPv4Subnets = append(nl.IPv4Subnets, subnet)
 }
 
-// IPv4Count returns the number of IPv4 subnets
+// IPv4Count returns the number of IPv4 subnets.
 func (nl *NetworkList) IPv4Count() int {
 	return len(nl.IPv4Subnets)
 }
 
-// TotalCount returns the total number of subnets
+// TotalCount returns the total number of subnets across all address families.
+// Currently delegates to IPv4Count; extend when IPv6 support is added.
 func (nl *NetworkList) TotalCount() int {
-	return len(nl.IPv4Subnets)
+	return nl.IPv4Count()
 }

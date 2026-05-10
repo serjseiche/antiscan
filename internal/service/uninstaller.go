@@ -29,8 +29,8 @@ func NewUninstallerService(logger zerolog.Logger, cmdSvc *CommandService) *Unins
 
 // Uninstall removes AntiscanSimple artifacts and restores firewall state.
 func (s *UninstallerService) Uninstall(removeLogs bool) error {
-	s.logger.Info().Msg("=== Uninstall AntiscanSimple ===")
-	s.logger.Info().Msg("AntiscanSimple does not modify Linux routing tables (ip rule/ip route), skipping routing rollback")
+	s.logger.Info().Msg("=== Uninstalling AntiscanSimple ===")
+	s.logger.Info().Msg("AntiscanSimple does not modify Linux routing tables (ip rule/ip route) — skipping routing rollback")
 
 	s.stopAndDisableServices()
 	s.cleanupIPTablesRuntime()
@@ -88,9 +88,9 @@ func (s *UninstallerService) cleanupDockerUser() {
 	dropRule := []string{"-m", "set", "--match-set", ipsetV4Name, "src", "-j", "DROP"}
 	if s.iptablesCmd.RuleExists(IPv4, TableFilter, "DOCKER-USER", dropRule) {
 		if err := s.iptablesCmd.DeleteRule(IPv4, TableFilter, "DOCKER-USER", dropRule); err != nil {
-			s.logger.Warn().Err(err).Msg("Не удалось удалить правило из DOCKER-USER, продолжаем")
+			s.logger.Warn().Err(err).Msg("Failed to remove rule from DOCKER-USER, continuing")
 		} else {
-			s.logger.Info().Msg("Правило удалено из DOCKER-USER")
+			s.logger.Info().Msg("Rule removed from DOCKER-USER")
 		}
 	}
 }

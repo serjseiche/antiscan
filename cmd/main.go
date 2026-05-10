@@ -22,25 +22,20 @@ var (
 	logLevel       string
 	autoUpdate     bool
 	updateInterval string
-	version        = "dev" // Версия будет устанавливаться при сборке через -ldflags
+	version        = "dev" // set at build time via -ldflags
 )
 
 func main() {
-	// Setup logger
-	log := logger.New()
-	logger.SetGlobalLogger(log)
+	// Set a default logger so any output before PersistentPreRun is not lost.
+	logger.SetGlobalLogger(logger.New())
 
 	rootCmd := &cobra.Command{
 		Use:     "antiscan-simple",
-		Short:   "Инструмент для управления блокировкой сканеров через iptables и ipset",
-		Long:    `Утилита для скачивания списков подсетей сканеров и настройки правил iptables/ipset для их блокировки.`,
+		Short:   "Manage scanner blocking via iptables and ipset",
+		Long:    `Download subnet blocklists and configure iptables/ipset rules to block port scanners.`,
 		Version: version,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			// Update logger level if specified
-			if logLevel != "" {
-				log = logger.NewWithLevel(logLevel)
-				logger.SetGlobalLogger(log)
-			}
+			logger.SetGlobalLogger(logger.NewWithLevel(logLevel))
 		},
 	}
 
@@ -48,34 +43,34 @@ func main() {
 
 	fullCmd := &cobra.Command{
 		Use:   "full",
-		Short: "Выполнить полную установку (скачать, настроить и применить)",
-		Long:  `Скачивает списки подсетей, настраивает ipset и iptables, сохраняет правила для автозагрузки.`,
+		Short: "Run full setup (download, configure and apply)",
+		Long:  `Downloads subnet lists, configures ipset and iptables, and saves rules for boot persistence.`,
 		Run:   runFull,
 	}
-	fullCmd.Flags().StringSliceVarP(&urls, "urls", "u", []string{}, "Список URL для скачивания подсетей")
-	fullCmd.Flags().BoolVarP(&enableLogging, "enable-logging", "l", false, "Включить логирование заблокированных подключений")
-	fullCmd.Flags().BoolVar(&autoUpdate, "auto-update", false, "Включить автоматическое обновление списков")
-	fullCmd.Flags().StringVar(&updateInterval, "update-interval", "24h", "Интервал обновления (например: 24h, 30m, 7d)")
+	fullCmd.Flags().StringArrayVarP(&urls, "urls", "u", []string{}, "URL(s) of subnet blocklists (repeatable)")
+	fullCmd.Flags().BoolVarP(&enableLogging, "enable-logging", "l", false, "Enable logging of blocked connections")
+	fullCmd.Flags().BoolVar(&autoUpdate, "auto-update", false, "Enable automatic blocklist updates")
+	fullCmd.Flags().StringVar(&updateInterval, "update-interval", "24h", "Update interval (e.g. 24h, 30m, 7d)")
 	fullCmd.MarkFlagRequired("urls")
 
 	uninstallCmd := &cobra.Command{
 		Use:   "uninstall",
-		Short: "Удалить все изменения, внесённые antiscan-simple",
-		Long:  `Удаляет цепочки iptables/ipset, systemd сервисы и конфигурационные файлы, созданные antiscan-simple.`,
+		Short: "Remove all changes made by antiscan-simple",
+		Long:  `Removes iptables/ipset chains, systemd services and config files created by antiscan-simple.`,
 		Run:   runUninstall,
 	}
-	uninstallCmd.Flags().BoolVar(&confirmYes, "yes", false, "Подтвердить удаление без интерактивного запроса")
-	uninstallCmd.Flags().BoolVar(&removeLogs, "remove-logs", false, "Удалить логи antiscan-simple из /var/log")
+	uninstallCmd.Flags().BoolVar(&confirmYes, "yes", false, "Confirm removal without interactive prompt")
+	uninstallCmd.Flags().BoolVar(&removeLogs, "remove-logs", false, "Also delete antiscan-simple log files from /var/log")
 
 	statusCmd := &cobra.Command{
 		Use:   "status",
-		Short: "Показать текущее состояние защиты",
+		Short: "Show current protection status",
 		Run:   runStatus,
 	}
 
 	updateCmd := &cobra.Command{
 		Use:   "update",
-		Short: "Обновить списки блокировки из сохранённых URL",
+		Short: "Update blocklists from saved URLs",
 		Run:   runUpdate,
 	}
 
@@ -92,81 +87,64 @@ func main() {
 
 func runFull(cmd *cobra.Command, args []string) {
 	log := logger.Global()
-	log.Info().Msg("=== Полная установка ===")
+	log.Info().Msg("=== Full setup ===")
 
-	// Create services
-	// Create command service
 	cmdSvc := service.NewCommandService(log.Logger)
-
 	installer := service.NewInstallerService(log.Logger)
 	downloader := service.NewDownloader(log.Logger)
 	ipsetSvc := service.NewIpsetService(log.Logger, cmdSvc)
 	iptablesSvc := service.NewIptablesService(log.Logger, cmdSvc, enableLogging)
 	loggingSvc := service.NewLoggingService(log.Logger, cmdSvc)
 
-	// Check root
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Err(err).Msg("Недостаточно прав")
+		log.Fatal().Err(err).Msg("Insufficient privileges")
 	}
 
 	if err := installer.CheckNoUFW(); err != nil {
-		log.Fatal().Err(err).Msg("Несовместимая конфигурация")
+		log.Fatal().Err(err).Msg("Incompatible configuration")
 	}
 
-	// Ensure dependencies
 	if err := installer.EnsureDependencies(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to install dependencies")
+		log.Fatal().Err(err).Msg("Dependency check failed")
 	}
 
-	// Ensure netfilter-persistent is installed
 	if err := installer.EnsureNetfilterPersistent(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to install netfilter-persistent")
+		log.Fatal().Err(err).Msg("netfilter-persistent check failed")
 	}
 
-	// Download subnets
 	networks, err := downloader.Download(urls)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to download subnets")
 	}
 
-	// Setup ipset
 	if err := ipsetSvc.Setup(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to setup ipset")
 	}
 
-	// Fill ipset with subnets
 	if err := ipsetSvc.Fill(networks); err != nil {
 		log.Fatal().Err(err).Msg("Failed to fill ipset")
 	}
 
-	// Setup iptables
 	if err := iptablesSvc.SetupChain(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to setup iptables")
 	}
 
-	// Setup logging if enabled
 	if enableLogging {
 		if err := loggingSvc.Setup(); err != nil {
 			log.Warn().Err(err).Msg("Failed to setup logging configuration")
 		}
 	}
 
-	// Save rules
 	if err := ipsetSvc.Save("/etc/ipset.conf"); err != nil {
 		log.Warn().Err(err).Msg("Failed to save ipset configuration")
 	}
 
-	// Create systemd service to restore ipset on boot (before UFW starts)
 	if err := ipsetSvc.CreateRestoreService(); err != nil {
 		log.Warn().Err(err).Msg("Failed to create ipset restore service")
 	}
 
 	if err := iptablesSvc.Save(); err != nil {
-		log.Error().Msg("╔════════════════════════════════════════════════════════════╗")
-		log.Error().Msg("║  ❌ УСТАНОВКА ПРЕРВАНА - КРИТИЧЕСКАЯ ОШИБКА                 ║")
-		log.Error().Msg("╚════════════════════════════════════════════════════════════╝")
-		log.Error().Msg("")
-		log.Fatal().Err(err).Msg("Не удалось сохранить правила iptables")
+		log.Fatal().Err(err).Msg("Failed to save iptables rules — setup aborted")
 	}
 
 	cfg := &state.Config{
@@ -177,33 +155,33 @@ func runFull(cmd *cobra.Command, args []string) {
 		LastUpdate:     time.Now(),
 	}
 	if err := state.Save(cfg); err != nil {
-		log.Warn().Err(err).Msg("Не удалось сохранить state-файл")
+		log.Warn().Err(err).Msg("Failed to save state file")
 	} else {
-		log.Info().Str("path", state.Path()).Msg("Состояние сохранено")
+		log.Info().Str("path", state.Path()).Msg("State saved")
 	}
 
 	if autoUpdate {
 		updaterSvc := service.NewUpdaterService(log.Logger, cmdSvc)
 		if err := updaterSvc.Setup(updateInterval); err != nil {
-			log.Warn().Err(err).Msg("Не удалось настроить auto-update")
+			log.Warn().Err(err).Msg("Failed to configure auto-update")
 		}
 	}
 
-	log.Info().Msg("Полная установка успешно завершена")
+	log.Info().Msg("Full setup completed successfully")
 }
 
 func runUpdate(cmd *cobra.Command, args []string) {
 	log := logger.Global()
-	log.Info().Msg("=== Обновление списков блокировки ===")
+	log.Info().Msg("=== Updating blocklists ===")
 
 	installer := service.NewInstallerService(log.Logger)
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Msg("Программа должна быть запущена от root (используйте sudo)")
+		log.Fatal().Msg("Must be run as root (use sudo)")
 	}
 
 	cfg, err := state.Load()
 	if err != nil {
-		log.Fatal().Msg("Не сконфигурировано, запустите antiscan-simple full")
+		log.Fatal().Msg("Not configured — run antiscan-simple full first")
 	}
 
 	cmdSvc := service.NewCommandService(log.Logger)
@@ -212,30 +190,30 @@ func runUpdate(cmd *cobra.Command, args []string) {
 
 	networks, err := downloader.Download(cfg.URLs)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Не удалось загрузить списки")
+		log.Fatal().Err(err).Msg("Failed to download blocklists")
 	}
 	if networks.TotalCount() == 0 {
-		log.Fatal().Msg("Получен пустой список, обновление отменено")
+		log.Fatal().Msg("Downloaded list is empty, update aborted")
 	}
 
 	if err := ipsetSvc.Setup(); err != nil {
-		log.Fatal().Err(err).Msg("Не удалось сбросить ipset")
+		log.Fatal().Err(err).Msg("Failed to reset ipset")
 	}
 	if err := ipsetSvc.Fill(networks); err != nil {
-		log.Fatal().Err(err).Msg("Не удалось заполнить ipset")
+		log.Fatal().Err(err).Msg("Failed to fill ipset")
 	}
 	if err := ipsetSvc.Save("/etc/ipset.conf"); err != nil {
-		log.Warn().Err(err).Msg("Не удалось сохранить конфигурацию ipset")
+		log.Warn().Err(err).Msg("Failed to save ipset configuration")
 	}
 
 	cfg.LastUpdate = time.Now()
 	if err := state.Save(cfg); err != nil {
-		log.Warn().Err(err).Msg("Не удалось обновить state-файл")
+		log.Warn().Err(err).Msg("Failed to update state file")
 	}
 
 	log.Info().
 		Int("total", networks.TotalCount()).
-		Msg("Списки блокировки успешно обновлены")
+		Msg("Blocklists updated successfully")
 }
 
 func runStatus(cmd *cobra.Command, args []string) {
@@ -245,40 +223,40 @@ func runStatus(cmd *cobra.Command, args []string) {
 	statusSvc := service.NewStatusService(log.Logger, cmdSvc)
 
 	if err := statusSvc.Render(os.Stdout); err != nil {
-		log.Fatal().Err(err).Msg("Не удалось получить статус")
+		log.Fatal().Err(err).Msg("Failed to get status")
 	}
 }
 
 func runUninstall(cmd *cobra.Command, args []string) {
 	log := logger.Global()
-	log.Info().Msg("=== Удаление antiscan-simple ===")
+	log.Info().Msg("=== Uninstalling antiscan-simple ===")
 
 	cmdSvc := service.NewCommandService(log.Logger)
 	installer := service.NewInstallerService(log.Logger)
 	uninstaller := service.NewUninstallerService(log.Logger, cmdSvc)
 
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Msg("Программа должна быть запущена от root (используйте sudo)")
+		log.Fatal().Msg("Must be run as root (use sudo)")
 	}
 
 	if !confirmYes {
-		fmt.Print("Это удалит правила antiscan-simple, systemd-сервисы и конфигурацию. Продолжить? [y/N]: ")
+		fmt.Print("This will remove antiscan-simple rules, systemd services and configuration. Continue? [y/N]: ")
 		if !confirmFromStdin() {
-			log.Info().Msg("Удаление отменено пользователем")
+			log.Info().Msg("Uninstall cancelled by user")
 			return
 		}
 	}
 
 	if err := uninstaller.Uninstall(removeLogs); err != nil {
-		log.Fatal().Err(err).Msg("Не удалось выполнить uninstall")
+		log.Fatal().Err(err).Msg("Uninstall failed")
 	}
 
 	if removeLogs {
-		log.Info().Msg("Uninstall завершён, логи удалены")
+		log.Info().Msg("Uninstall complete, logs removed")
 		return
 	}
 
-	log.Info().Msg("Uninstall завершён, логи сохранены")
+	log.Info().Msg("Uninstall complete, logs preserved")
 }
 
 func confirmFromStdin() bool {

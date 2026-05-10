@@ -110,7 +110,7 @@ func (s *IpsetCommandService) Exists(name string) bool {
 // Save saves ipset configuration to a file
 func (s *IpsetCommandService) Save(path string) error {
 	s.logger.Info().Str("path", path).Msg("Saving ipset configuration")
-	return s.cmdSvc.RunShell(fmt.Sprintf("ipset save > %s", path))
+	return s.cmdSvc.RunToFile(path, "ipset", "save")
 }
 
 // CreateHashNet creates a hash:net type set (convenience method)

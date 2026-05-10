@@ -22,19 +22,19 @@ func NewInstallerService(logger zerolog.Logger) *InstallerService {
 
 // EnsureDependencies checks that required packages are installed
 func (s *InstallerService) EnsureDependencies() error {
-	s.logger.Info().Msg("Проверка зависимостей")
+	s.logger.Info().Msg("Checking dependencies")
 
 	for _, pkg := range []string{"iptables", "ipset"} {
 		if !s.commandExists(pkg) {
 			return fmt.Errorf(
-				"%s не установлен.\nУстановите вручную:\n  Debian/Ubuntu: sudo apt-get install %s\n  RHEL/CentOS:   sudo yum install %s",
+				"%s is not installed.\nInstall manually:\n  Debian/Ubuntu: sudo apt-get install %s\n  RHEL/CentOS:   sudo yum install %s",
 				pkg, pkg, pkg,
 			)
 		}
-		s.logger.Debug().Msgf("%s уже установлен", pkg)
+		s.logger.Debug().Msgf("%s is installed", pkg)
 	}
 
-	s.logger.Info().Msg("Все зависимости удовлетворены")
+	s.logger.Info().Msg("All dependencies satisfied")
 	return nil
 }
 
@@ -42,8 +42,8 @@ func (s *InstallerService) EnsureDependencies() error {
 func (s *InstallerService) CheckNoUFW() error {
 	if s.commandExists("ufw") {
 		return fmt.Errorf(
-			"UFW обнаружен в системе. antiscan-simple работает только с iptables напрямую.\n" +
-				"Удалите UFW перед установкой:\n" +
+			"UFW detected. antiscan-simple requires direct iptables access.\n" +
+				"Remove UFW before installing:\n" +
 				"  Debian/Ubuntu: sudo apt remove --purge ufw\n" +
 				"  RHEL/CentOS:   sudo yum remove ufw",
 		)
@@ -53,22 +53,22 @@ func (s *InstallerService) CheckNoUFW() error {
 
 // EnsureNetfilterPersistent checks that netfilter-persistent is installed (Debian only)
 func (s *InstallerService) EnsureNetfilterPersistent() error {
-	s.logger.Info().Msg("Проверка системы сохранения правил")
+	s.logger.Info().Msg("Checking rule persistence tool")
 
 	distro := getDistroType()
 
 	if distro != "debian" {
-		s.logger.Debug().Msg("netfilter-persistent доступен только для Debian-based систем")
+		s.logger.Debug().Msg("netfilter-persistent is only available on Debian-based systems")
 		return nil
 	}
 
 	if s.commandExists("netfilter-persistent") {
-		s.logger.Debug().Msg("netfilter-persistent уже установлен")
+		s.logger.Debug().Msg("netfilter-persistent is installed")
 		return nil
 	}
 
 	return fmt.Errorf(
-		"netfilter-persistent не установлен.\nУстановите вручную:\n  Debian/Ubuntu: sudo apt-get install netfilter-persistent iptables-persistent",
+		"netfilter-persistent is not installed.\nInstall manually:\n  Debian/Ubuntu: sudo apt-get install netfilter-persistent iptables-persistent",
 	)
 }
 
@@ -92,7 +92,7 @@ func getDistroType() string {
 // CheckRootPrivileges verifies the program is running as root
 func (s *InstallerService) CheckRootPrivileges() error {
 	if os.Geteuid() != 0 {
-		return fmt.Errorf("программа должна быть запущена от root (используйте sudo)")
+		return fmt.Errorf("must be run as root (use sudo)")
 	}
 	return nil
 }

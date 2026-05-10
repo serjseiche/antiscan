@@ -31,7 +31,7 @@ func NewIptablesService(logger zerolog.Logger, cmdSvc *CommandService, enableLog
 
 // SetupChain creates and configures iptables chains
 func (s *IptablesService) SetupChain() error {
-	s.logger.Info().Msg("Настройка цепочек iptables")
+	s.logger.Info().Msg("Setting up iptables chains")
 
 	if err := s.setupVersionChain(IPv4, ipsetV4Name, true); err != nil {
 		return fmt.Errorf("failed to setup IPv4 chain: %w", err)
@@ -39,13 +39,13 @@ func (s *IptablesService) SetupChain() error {
 
 	if s.isDockerPresent() {
 		if err := s.setupDockerUserChain(); err != nil {
-			s.logger.Warn().Err(err).Msg("Не удалось настроить DOCKER-USER, продолжаем")
+			s.logger.Warn().Err(err).Msg("Failed to configure DOCKER-USER, continuing")
 		}
 	} else {
-		s.logger.Info().Msg("Docker не обнаружен, настройка DOCKER-USER пропущена")
+		s.logger.Info().Msg("Docker not detected, skipping DOCKER-USER setup")
 	}
 
-	s.logger.Info().Msg("Цепочки iptables настроены")
+	s.logger.Info().Msg("iptables chains configured")
 	return nil
 }
 
@@ -65,29 +65,29 @@ func (s *IptablesService) isDockerPresent() bool {
 func (s *IptablesService) setupDockerUserChain() error {
 	justCreated := false
 	if !s.iptablesCmd.ChainExists(IPv4, TableFilter, dockerUserChain) {
-		s.logger.Info().Msg("Создание цепочки DOCKER-USER")
+		s.logger.Info().Msg("Creating DOCKER-USER chain")
 		if err := s.iptablesCmd.CreateChain(IPv4, TableFilter, dockerUserChain); err != nil {
-			return fmt.Errorf("не удалось создать DOCKER-USER: %w", err)
+			return fmt.Errorf("failed to create DOCKER-USER: %w", err)
 		}
 		// Add RETURN at the end so Docker behaviour is preserved if it appears later
 		if err := s.iptablesCmd.AppendRule(IPv4, TableFilter, dockerUserChain, []string{"-j", "RETURN"}); err != nil {
-			s.logger.Warn().Err(err).Msg("Не удалось добавить RETURN в DOCKER-USER")
+			s.logger.Warn().Err(err).Msg("Failed to add RETURN to DOCKER-USER")
 		}
 		justCreated = true
 	}
 
 	dropRule := []string{"-m", "set", "--match-set", ipsetV4Name, "src", "-j", "DROP"}
 	if !s.iptablesCmd.RuleExists(IPv4, TableFilter, dockerUserChain, dropRule) {
-		s.logger.Info().Msg("Вставка правила DROP в DOCKER-USER на позицию 1")
+		s.logger.Info().Msg("Inserting DROP rule into DOCKER-USER at position 1")
 		if err := s.iptablesCmd.InsertRule(IPv4, TableFilter, dockerUserChain, 1, dropRule); err != nil {
-			return fmt.Errorf("не удалось добавить правило в DOCKER-USER: %w", err)
+			return fmt.Errorf("failed to add rule to DOCKER-USER: %w", err)
 		}
-	} else if justCreated {
-		s.logger.Debug().Msg("Правило DOCKER-USER уже присутствует")
+	} else {
+		s.logger.Debug().Bool("chain_created_now", justCreated).Msg("DOCKER-USER DROP rule already present")
 	}
 
 	if err := s.createDockerRuleService(); err != nil {
-		s.logger.Warn().Err(err).Msg("Не удалось создать сервис antiscan-docker-rules")
+		s.logger.Warn().Err(err).Msg("Failed to create antiscan-docker-rules service")
 	}
 	return nil
 }
@@ -95,35 +95,35 @@ func (s *IptablesService) setupDockerUserChain() error {
 // createDockerRuleService writes and enables antiscan-docker-rules.service and its timer.
 func (s *IptablesService) createDockerRuleService() error {
 	if err := os.WriteFile(DockerRulesServicePath, []byte(DockerRulesServiceTemplate), 0644); err != nil {
-		return fmt.Errorf("запись %s: %w", DockerRulesServicePath, err)
+		return fmt.Errorf("write %s: %w", DockerRulesServicePath, err)
 	}
 	if err := os.WriteFile(DockerRulesTimerPath, []byte(DockerRulesTimerTemplate), 0644); err != nil {
-		return fmt.Errorf("запись %s: %w", DockerRulesTimerPath, err)
+		return fmt.Errorf("write %s: %w", DockerRulesTimerPath, err)
 	}
 	if err := s.cmdSvc.DaemonReload(); err != nil {
-		s.logger.Warn().Err(err).Msg("daemon-reload завершился с ошибкой")
+		s.logger.Warn().Err(err).Msg("daemon-reload failed")
 	}
 	if err := s.cmdSvc.EnableService("antiscan-docker-rules.service"); err != nil {
-		return fmt.Errorf("включение antiscan-docker-rules.service: %w", err)
+		return fmt.Errorf("enable antiscan-docker-rules.service: %w", err)
 	}
 	if err := s.cmdSvc.Run("systemctl", "enable", "--now", "antiscan-docker-rules.timer"); err != nil {
-		s.logger.Warn().Err(err).Msg("Не удалось включить antiscan-docker-rules.timer")
+		s.logger.Warn().Err(err).Msg("Failed to enable antiscan-docker-rules.timer")
 	}
-	s.logger.Info().Msg("Сервис и таймер antiscan-docker-rules включены")
+	s.logger.Info().Msg("antiscan-docker-rules service and timer enabled")
 	return nil
 }
 
 // setupVersionChain configures the SCANNERS-BLOCK chain
 func (s *IptablesService) setupVersionChain(version IPVersion, ipsetName string, linkToInput bool) error {
-	s.logger.Debug().Str("version", string(version)).Msg("Настройка цепочки")
+	s.logger.Debug().Str("version", string(version)).Msg("Configuring chain")
 
 	if s.iptablesCmd.ChainExists(version, TableFilter, chainName) {
-		s.logger.Info().Str("chain", chainName).Str("version", string(version)).Msg("Очистка существующей цепочки")
+		s.logger.Info().Str("chain", chainName).Str("version", string(version)).Msg("Flushing existing chain")
 		if err := s.iptablesCmd.FlushChain(version, TableFilter, chainName); err != nil {
 			return fmt.Errorf("failed to flush chain: %w", err)
 		}
 	} else {
-		s.logger.Info().Str("chain", chainName).Str("version", string(version)).Msg("Создание цепочки")
+		s.logger.Info().Str("chain", chainName).Str("version", string(version)).Msg("Creating chain")
 		if err := s.iptablesCmd.CreateChain(version, TableFilter, chainName); err != nil {
 			return fmt.Errorf("failed to create chain: %w", err)
 		}
@@ -131,7 +131,7 @@ func (s *IptablesService) setupVersionChain(version IPVersion, ipsetName string,
 
 	if linkToInput {
 		if !s.iptablesCmd.RuleExists(version, TableFilter, string(ChainInput), []string{"-j", chainName}) {
-			s.logger.Info().Str("version", string(version)).Msg("Привязка цепочки к INPUT")
+			s.logger.Info().Str("version", string(version)).Msg("Linking chain to INPUT")
 			if err := s.iptablesCmd.LinkChainToInput(version, chainName, 1); err != nil {
 				return fmt.Errorf("failed to link chain to INPUT: %w", err)
 			}
@@ -143,7 +143,7 @@ func (s *IptablesService) setupVersionChain(version IPVersion, ipsetName string,
 		Jump(TargetReturn).
 		Build()
 	if !s.iptablesCmd.RuleExists(version, TableFilter, chainName, establishedRule) {
-		s.logger.Info().Str("version", string(version)).Msg("Добавление правила для установленных соединений")
+		s.logger.Info().Str("version", string(version)).Msg("Adding ESTABLISHED/RELATED return rule")
 		if err := s.iptablesCmd.InsertRule(version, TableFilter, chainName, 1, establishedRule); err != nil {
 			return fmt.Errorf("failed to add ESTABLISHED rule: %w", err)
 		}
@@ -158,7 +158,7 @@ func (s *IptablesService) setupVersionChain(version IPVersion, ipsetName string,
 			LogLevel("4").
 			Build()
 		if !s.iptablesCmd.RuleExists(version, TableFilter, chainName, logRule) {
-			s.logger.Info().Str("version", string(version)).Msg("Добавление правила логирования")
+			s.logger.Info().Str("version", string(version)).Msg("Adding LOG rule")
 			if err := s.iptablesCmd.InsertRule(version, TableFilter, chainName, 2, logRule); err != nil {
 				return fmt.Errorf("failed to add LOG rule: %w", err)
 			}
@@ -167,7 +167,7 @@ func (s *IptablesService) setupVersionChain(version IPVersion, ipsetName string,
 
 	dropRule := NewRuleBuilder().MatchSet(ipsetName, "src").Jump(TargetDrop).Build()
 	if !s.iptablesCmd.RuleExists(version, TableFilter, chainName, dropRule) {
-		s.logger.Info().Str("version", string(version)).Msg("Добавление правила блокировки")
+		s.logger.Info().Str("version", string(version)).Msg("Adding DROP rule")
 		if err := s.iptablesCmd.AppendRule(version, TableFilter, chainName, dropRule); err != nil {
 			return fmt.Errorf("failed to add DROP rule: %w", err)
 		}
@@ -178,10 +178,10 @@ func (s *IptablesService) setupVersionChain(version IPVersion, ipsetName string,
 
 // Save saves iptables rules using netfilter-persistent
 func (s *IptablesService) Save() error {
-	s.logger.Info().Msg("Сохранение правил iptables")
+	s.logger.Info().Msg("Saving iptables rules")
 
 	if !s.cmdSvc.CommandExists("netfilter-persistent") {
-		return fmt.Errorf("netfilter-persistent не установлен. Запустите установку зависимостей")
+		return fmt.Errorf("netfilter-persistent is not installed, run dependency setup first")
 	}
 
 	return s.saveWithNetfilterPersistent()
@@ -196,7 +196,7 @@ func (s *IptablesService) saveWithNetfilterPersistent() error {
 	if err := s.iptablesCmd.Save(IPv4, "/etc/iptables/rules.v4"); err != nil {
 		return fmt.Errorf("failed to save iptables: %w", err)
 	}
-	s.logger.Info().Msg("Правила iptables сохранены в /etc/iptables/rules.v4")
+	s.logger.Info().Msg("iptables rules saved to /etc/iptables/rules.v4")
 
 	if err := s.cmdSvc.Run("netfilter-persistent", "save"); err != nil {
 		s.logger.Warn().Err(err).Msg("netfilter-persistent save failed")

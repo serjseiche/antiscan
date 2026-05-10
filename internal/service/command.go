@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -80,6 +81,31 @@ func (s *CommandService) RunOutputQuiet(name string, args ...string) (string, er
 	return string(output), err
 }
 
+// RunToFile executes a command and writes its stdout directly to path,
+// avoiding shell interpretation of the path (no shell injection risk).
+func (s *CommandService) RunToFile(path string, name string, args ...string) error {
+	s.logger.Debug().
+		Str("command", name).
+		Strs("args", args).
+		Str("output_file", path).
+		Msg("Executing command with file output")
+
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", path, err)
+	}
+	defer f.Close()
+
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = f
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("command '%s %s' failed: %w: %s", name, strings.Join(args, " "), err, stderr.String())
+	}
+	return nil
+}
+
 // RunShell executes a shell command (sh -c "command")
 func (s *CommandService) RunShell(command string) error {
 	s.logger.Debug().
@@ -117,7 +143,7 @@ func (s *CommandService) IsServiceActive(serviceName string) bool {
 		return false
 	}
 
-	output, err := s.RunOutput("systemctl", "is-active", serviceName)
+	output, err := s.RunOutputQuiet("systemctl", "is-active", serviceName)
 	if err != nil {
 		return false
 	}
@@ -131,7 +157,7 @@ func (s *CommandService) IsServiceEnabled(serviceName string) bool {
 		return false
 	}
 
-	output, err := s.RunOutput("systemctl", "is-enabled", serviceName)
+	output, err := s.RunOutputQuiet("systemctl", "is-enabled", serviceName)
 	if err != nil {
 		return false
 	}

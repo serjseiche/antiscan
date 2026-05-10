@@ -38,54 +38,54 @@ func (s *StatusService) Render(w io.Writer) error {
 
 	active := chainExists && len(attachedTo) > 0
 	if active {
-		fmt.Fprintln(w, "Защита: активна")
-		fmt.Fprintf(w, "  Привязки: %s\n", strings.Join(attachedTo, ", "))
+		fmt.Fprintln(w, "Protection: active")
+		fmt.Fprintf(w, "  Attached to: %s\n", strings.Join(attachedTo, ", "))
 	} else {
-		fmt.Fprintln(w, "Защита: не активна")
+		fmt.Fprintln(w, "Protection: inactive")
 		if chainExists && len(attachedTo) == 0 {
-			fmt.Fprintln(w, "  Цепочка SCANNERS-BLOCK существует, но не привязана к INPUT/DOCKER-USER")
+			fmt.Fprintln(w, "  Chain SCANNERS-BLOCK exists but is not linked to INPUT/DOCKER-USER")
 		}
 		if !chainExists {
-			fmt.Fprintln(w, "  Цепочка SCANNERS-BLOCK отсутствует")
+			fmt.Fprintln(w, "  Chain SCANNERS-BLOCK is missing")
 		}
 	}
 
 	v4Count, v4Err := s.ipsetEntryCount(ipsetV4Name)
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Размер ipset:")
+	fmt.Fprintln(w, "ipset sizes:")
 	fmt.Fprintf(w, "  %s: %s\n", ipsetV4Name, formatCount(v4Count, v4Err))
 
 	fmt.Fprintln(w)
 	cfg, err := state.Load()
 	switch {
 	case errors.Is(err, state.ErrNotFound):
-		fmt.Fprintln(w, "Источники списков: не сконфигурировано, запустите antiscan-simple full")
-		fmt.Fprintln(w, "Последнее обновление: —")
+		fmt.Fprintln(w, "Source lists: not configured — run antiscan-simple full")
+		fmt.Fprintln(w, "Last update: —")
 	case err != nil:
-		fmt.Fprintf(w, "Источники списков: ошибка чтения state: %v\n", err)
-		fmt.Fprintln(w, "Последнее обновление: —")
+		fmt.Fprintf(w, "Source lists: error reading state: %v\n", err)
+		fmt.Fprintln(w, "Last update: —")
 	default:
-		fmt.Fprintln(w, "Источники списков:")
+		fmt.Fprintln(w, "Source lists:")
 		if len(cfg.URLs) == 0 {
-			fmt.Fprintln(w, "  (пусто)")
+			fmt.Fprintln(w, "  (empty)")
 		}
 		for _, url := range cfg.URLs {
 			fmt.Fprintf(w, "  - %s\n", url)
 		}
-		fmt.Fprintf(w, "Последнее обновление: %s\n", formatLastUpdate(cfg.LastUpdate))
+		fmt.Fprintf(w, "Last update: %s\n", formatLastUpdate(cfg.LastUpdate))
 		if cfg.AutoUpdate {
-			fmt.Fprintf(w, "Auto-update: включён, интервал %s\n", cfg.UpdateInterval)
+			fmt.Fprintf(w, "Auto-update: enabled, interval %s\n", cfg.UpdateInterval)
 		} else {
-			fmt.Fprintln(w, "Auto-update: выключен")
+			fmt.Fprintln(w, "Auto-update: disabled")
 		}
 	}
 
 	fmt.Fprintln(w)
 	pkts, err := s.blockedPackets()
 	if err != nil {
-		fmt.Fprintf(w, "Заблокировано пакетов (IPv4): неизвестно (%v)\n", err)
+		fmt.Fprintf(w, "Blocked packets (IPv4): unknown (%v)\n", err)
 	} else {
-		fmt.Fprintf(w, "Заблокировано пакетов (IPv4): %d\n", pkts)
+		fmt.Fprintf(w, "Blocked packets (IPv4): %d\n", pkts)
 	}
 
 	return nil
@@ -170,7 +170,7 @@ func parseDropPackets(output string) uint64 {
 
 func formatCount(n int, err error) string {
 	if err != nil {
-		return fmt.Sprintf("неизвестно (%v)", err)
+		return fmt.Sprintf("unknown (%v)", err)
 	}
 	return strconv.Itoa(n)
 }
@@ -182,12 +182,12 @@ func formatLastUpdate(t time.Time) string {
 	d := time.Since(t)
 	switch {
 	case d < time.Minute:
-		return fmt.Sprintf("%d секунд назад (%s)", int(d.Seconds()), t.Format(time.RFC3339))
+		return fmt.Sprintf("%d seconds ago (%s)", int(d.Seconds()), t.Format(time.RFC3339))
 	case d < time.Hour:
-		return fmt.Sprintf("%d минут назад (%s)", int(d.Minutes()), t.Format(time.RFC3339))
+		return fmt.Sprintf("%d minutes ago (%s)", int(d.Minutes()), t.Format(time.RFC3339))
 	case d < 24*time.Hour:
-		return fmt.Sprintf("%d часов назад (%s)", int(d.Hours()), t.Format(time.RFC3339))
+		return fmt.Sprintf("%d hours ago (%s)", int(d.Hours()), t.Format(time.RFC3339))
 	default:
-		return fmt.Sprintf("%d дней назад (%s)", int(d.Hours()/24), t.Format(time.RFC3339))
+		return fmt.Sprintf("%d days ago (%s)", int(d.Hours()/24), t.Format(time.RFC3339))
 	}
 }
