@@ -64,10 +64,12 @@ if [ -f "$WHOIS_CACHE" ]; then
 fi
 touch "$WHOIS_CACHE"
 
-# Atomic grab and clear log file
+# Move the log file atomically (rename syscall — no entries are lost).
+# rsyslog holds the old inode open via fd and keeps writing there until
+# it reopens the path; we process whatever ends up in TEMP_IPV4.
 if [ ! -f "$IPV4_LOG" ]; then exit 0; fi
-cat "$IPV4_LOG" > "$TEMP_IPV4"
-> "$IPV4_LOG"
+if ! mv "$IPV4_LOG" "$TEMP_IPV4" 2>/dev/null; then exit 0; fi
+touch "$IPV4_LOG"
 chown syslog:adm "$IPV4_LOG" 2>/dev/null || true
 chmod 640 "$IPV4_LOG" 2>/dev/null || true
 
@@ -136,7 +138,7 @@ exit 0
     delaycompress
     missingok
     notifempty
-    create 0640 root adm
+    create 0640 syslog adm
     sharedscripts
     postrotate
         /usr/lib/rsyslog/rsyslog-rotate
@@ -150,7 +152,7 @@ exit 0
     delaycompress
     missingok
     notifempty
-    create 0640 root adm
+    create 0640 syslog adm
 }
 `
 )

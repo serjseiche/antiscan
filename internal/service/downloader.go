@@ -3,6 +3,7 @@ package service
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/rs/zerolog"
 )
+
+const maxResponseBytes = 50 * 1024 * 1024 // 50 MB
 
 // Downloader handles downloading subnet lists from URLs
 type Downloader struct {
@@ -30,7 +33,7 @@ func NewDownloader(logger zerolog.Logger) *Downloader {
 
 // Download fetches subnets from multiple URLs and returns a NetworkList
 func (d *Downloader) Download(urls []string) (*domain.NetworkList, error) {
-	d.logger.Info().Int("url_count", len(urls)).Msg("Началась загрузка списков подсетей")
+	d.logger.Info().Int("url_count", len(urls)).Msg("Starting subnet list download")
 
 	networks := domain.NewNetworkList()
 	seenSubnets := make(map[string]bool)
@@ -40,14 +43,14 @@ func (d *Downloader) Download(urls []string) (*domain.NetworkList, error) {
 			Int("index", i+1).
 			Int("total", len(urls)).
 			Str("url", url).
-			Msg("Загрузка списка подсетей")
+			Msg("Downloading subnet list")
 
 		subnets, err := d.downloadSingle(url)
 		if err != nil {
 			d.logger.Warn().
 				Err(err).
 				Str("url", url).
-				Msg("Не удалось загрузить из URL, пропуск")
+				Msg("Failed to download from URL, skipping")
 			continue
 		}
 
@@ -76,12 +79,12 @@ func (d *Downloader) Download(urls []string) (*domain.NetworkList, error) {
 		d.logger.Info().
 			Int("added", added).
 			Str("url", url).
-			Msg("Загрузка списка подсетей завершена")
+			Msg("Subnet list downloaded")
 	}
 
 	d.logger.Info().
 		Int("total", networks.IPv4Count()).
-		Msg("Загрузка завершена")
+		Msg("Download complete")
 
 	return networks, nil
 }
@@ -98,8 +101,11 @@ func (d *Downloader) downloadSingle(url string) ([]string, error) {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
+	// LimitedReader.N reaches 0 when the limit is hit; we use limit+1 so we
+	// can distinguish "exactly at limit" from "body was larger than limit".
+	lr := &io.LimitedReader{R: resp.Body, N: maxResponseBytes + 1}
 	subnets := make([]string, 0)
-	scanner := bufio.NewScanner(resp.Body)
+	scanner := bufio.NewScanner(lr)
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -110,6 +116,10 @@ func (d *Downloader) downloadSingle(url string) ([]string, error) {
 
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if lr.N == 0 {
+		return nil, fmt.Errorf("response body exceeds %d MB limit", maxResponseBytes/1024/1024)
 	}
 
 	return subnets, nil

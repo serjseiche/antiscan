@@ -201,13 +201,12 @@ func (s *IptablesCommandService) ListChain(version IPVersion, table Table, chain
 
 // Save saves iptables rules to a file
 func (s *IptablesCommandService) Save(version IPVersion, path string) error {
-	cmd := s.getCommand(version)
 	s.logger.Info().
 		Str("version", string(version)).
 		Str("path", path).
 		Msg("Saving iptables rules")
 
-	return s.cmdSvc.RunShell(fmt.Sprintf("%s-save > %s", cmd, path))
+	return s.cmdSvc.RunToFile(path, "iptables-save")
 }
 
 // RuleBuilder helps build iptables rules
@@ -228,7 +227,7 @@ func (rb *RuleBuilder) MatchSet(setName, flag string) *RuleBuilder {
 	return rb
 }
 
-// Jump sets the target/jump
+// MatchConntrack adds a connection state match (-m conntrack --ctstate ...)
 func (rb *RuleBuilder) MatchConntrack(states ...string) *RuleBuilder {
 	rb.spec = append(rb.spec, "-m", "conntrack", "--ctstate", strings.Join(states, ","))
 	return rb
