@@ -187,6 +187,7 @@ func runUpdate(cmd *cobra.Command, args []string) {
 	cmdSvc := service.NewCommandService(log.Logger)
 	downloader := service.NewDownloader(log.Logger)
 	ipsetSvc := service.NewIpsetService(log.Logger, cmdSvc)
+	iptablesSvc := service.NewIptablesService(log.Logger, cmdSvc, cfg.EnableLogging)
 
 	networks, err := downloader.Download(cfg.URLs)
 	if err != nil {
@@ -206,6 +207,10 @@ func runUpdate(cmd *cobra.Command, args []string) {
 		log.Warn().Err(err).Msg("Failed to save ipset configuration")
 	}
 
+	if !iptablesSvc.IsActive() {
+		log.Warn().Msg("SCANNERS-BLOCK chain is missing or not linked to INPUT — ipset was updated but traffic is NOT being blocked; run 'antiscan-simple full' to restore protection")
+	}
+
 	cfg.LastUpdate = time.Now()
 	if err := state.Save(cfg); err != nil {
 		log.Warn().Err(err).Msg("Failed to update state file")
@@ -218,6 +223,11 @@ func runUpdate(cmd *cobra.Command, args []string) {
 
 func runStatus(cmd *cobra.Command, args []string) {
 	log := logger.Global()
+
+	installer := service.NewInstallerService(log.Logger)
+	if err := installer.CheckRootPrivileges(); err != nil {
+		log.Fatal().Msg("Must be run as root (use sudo)")
+	}
 
 	cmdSvc := service.NewCommandService(log.Logger)
 	statusSvc := service.NewStatusService(log.Logger, cmdSvc)

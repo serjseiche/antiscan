@@ -176,6 +176,14 @@ func (s *IptablesService) setupVersionChain(version IPVersion, ipsetName string,
 	return nil
 }
 
+// IsActive returns true if the SCANNERS-BLOCK chain exists and is linked to INPUT.
+func (s *IptablesService) IsActive() bool {
+	if !s.iptablesCmd.ChainExists(IPv4, TableFilter, chainName) {
+		return false
+	}
+	return s.iptablesCmd.RuleExists(IPv4, TableFilter, string(ChainInput), []string{"-j", chainName})
+}
+
 // Save saves iptables rules using netfilter-persistent
 func (s *IptablesService) Save() error {
 	s.logger.Info().Msg("Saving iptables rules")
