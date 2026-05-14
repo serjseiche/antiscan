@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	chainName = "SCANNERS-BLOCK"
+	chainName       = "SCANNERS-BLOCK"
+	dockerUserChain = "DOCKER-USER"
 )
 
 // IptablesService handles iptables operations
@@ -29,12 +30,12 @@ func NewIptablesService(logger zerolog.Logger, cmdSvc *CommandService, enableLog
 	}
 }
 
-// SetupChain creates and configures iptables chains
+// SetupChain creates and configures the SCANNERS-BLOCK chain
 func (s *IptablesService) SetupChain() error {
 	s.logger.Info().Msg("Setting up iptables chains")
 
-	if err := s.setupVersionChain(IPv4, ipsetV4Name, true); err != nil {
-		return fmt.Errorf("failed to setup IPv4 chain: %w", err)
+	if err := s.setupScannersBlockChain(ipsetV4Name); err != nil {
+		return fmt.Errorf("failed to setup SCANNERS-BLOCK chain: %w", err)
 	}
 
 	if s.isDockerPresent() {
@@ -49,8 +50,6 @@ func (s *IptablesService) SetupChain() error {
 	return nil
 }
 
-const dockerUserChain = "DOCKER-USER"
-
 // isDockerPresent checks whether Docker is installed on the system.
 func (s *IptablesService) isDockerPresent() bool {
 	if s.cmdSvc.CommandExists("docker") {
@@ -64,22 +63,22 @@ func (s *IptablesService) isDockerPresent() bool {
 // The chain is created if it does not exist (Docker may be installed later).
 func (s *IptablesService) setupDockerUserChain() error {
 	justCreated := false
-	if !s.iptablesCmd.ChainExists(IPv4, TableFilter, dockerUserChain) {
+	if !s.iptablesCmd.ChainExists(TableFilter, dockerUserChain) {
 		s.logger.Info().Msg("Creating DOCKER-USER chain")
-		if err := s.iptablesCmd.CreateChain(IPv4, TableFilter, dockerUserChain); err != nil {
+		if err := s.iptablesCmd.CreateChain(TableFilter, dockerUserChain); err != nil {
 			return fmt.Errorf("failed to create DOCKER-USER: %w", err)
 		}
 		// Add RETURN at the end so Docker behaviour is preserved if it appears later
-		if err := s.iptablesCmd.AppendRule(IPv4, TableFilter, dockerUserChain, []string{"-j", "RETURN"}); err != nil {
+		if err := s.iptablesCmd.AppendRule(TableFilter, dockerUserChain, []string{"-j", "RETURN"}); err != nil {
 			s.logger.Warn().Err(err).Msg("Failed to add RETURN to DOCKER-USER")
 		}
 		justCreated = true
 	}
 
 	dropRule := []string{"-m", "set", "--match-set", ipsetV4Name, "src", "-j", "DROP"}
-	if !s.iptablesCmd.RuleExists(IPv4, TableFilter, dockerUserChain, dropRule) {
+	if !s.iptablesCmd.RuleExists(TableFilter, dockerUserChain, dropRule) {
 		s.logger.Info().Msg("Inserting DROP rule into DOCKER-USER at position 1")
-		if err := s.iptablesCmd.InsertRule(IPv4, TableFilter, dockerUserChain, 1, dropRule); err != nil {
+		if err := s.iptablesCmd.InsertRule(TableFilter, dockerUserChain, 1, dropRule); err != nil {
 			return fmt.Errorf("failed to add rule to DOCKER-USER: %w", err)
 		}
 	} else {
@@ -113,28 +112,24 @@ func (s *IptablesService) createDockerRuleService() error {
 	return nil
 }
 
-// setupVersionChain configures the SCANNERS-BLOCK chain
-func (s *IptablesService) setupVersionChain(version IPVersion, ipsetName string, linkToInput bool) error {
-	s.logger.Debug().Str("version", string(version)).Msg("Configuring chain")
-
-	if s.iptablesCmd.ChainExists(version, TableFilter, chainName) {
-		s.logger.Info().Str("chain", chainName).Str("version", string(version)).Msg("Flushing existing chain")
-		if err := s.iptablesCmd.FlushChain(version, TableFilter, chainName); err != nil {
+// setupScannersBlockChain configures the SCANNERS-BLOCK chain and links it to INPUT.
+func (s *IptablesService) setupScannersBlockChain(ipsetName string) error {
+	if s.iptablesCmd.ChainExists(TableFilter, chainName) {
+		s.logger.Info().Str("chain", chainName).Msg("Flushing existing chain")
+		if err := s.iptablesCmd.FlushChain(TableFilter, chainName); err != nil {
 			return fmt.Errorf("failed to flush chain: %w", err)
 		}
 	} else {
-		s.logger.Info().Str("chain", chainName).Str("version", string(version)).Msg("Creating chain")
-		if err := s.iptablesCmd.CreateChain(version, TableFilter, chainName); err != nil {
+		s.logger.Info().Str("chain", chainName).Msg("Creating chain")
+		if err := s.iptablesCmd.CreateChain(TableFilter, chainName); err != nil {
 			return fmt.Errorf("failed to create chain: %w", err)
 		}
 	}
 
-	if linkToInput {
-		if !s.iptablesCmd.RuleExists(version, TableFilter, string(ChainInput), []string{"-j", chainName}) {
-			s.logger.Info().Str("version", string(version)).Msg("Linking chain to INPUT")
-			if err := s.iptablesCmd.LinkChainToInput(version, chainName, 1); err != nil {
-				return fmt.Errorf("failed to link chain to INPUT: %w", err)
-			}
+	if !s.iptablesCmd.RuleExists(TableFilter, string(ChainInput), []string{"-j", chainName}) {
+		s.logger.Info().Msg("Linking chain to INPUT")
+		if err := s.iptablesCmd.LinkChainToInput(chainName, 1); err != nil {
+			return fmt.Errorf("failed to link chain to INPUT: %w", err)
 		}
 	}
 
@@ -142,9 +137,9 @@ func (s *IptablesService) setupVersionChain(version IPVersion, ipsetName string,
 		MatchConntrack("ESTABLISHED", "RELATED").
 		Jump(TargetReturn).
 		Build()
-	if !s.iptablesCmd.RuleExists(version, TableFilter, chainName, establishedRule) {
-		s.logger.Info().Str("version", string(version)).Msg("Adding ESTABLISHED/RELATED return rule")
-		if err := s.iptablesCmd.InsertRule(version, TableFilter, chainName, 1, establishedRule); err != nil {
+	if !s.iptablesCmd.RuleExists(TableFilter, chainName, establishedRule) {
+		s.logger.Info().Msg("Adding ESTABLISHED/RELATED return rule")
+		if err := s.iptablesCmd.InsertRule(TableFilter, chainName, 1, establishedRule); err != nil {
 			return fmt.Errorf("failed to add ESTABLISHED rule: %w", err)
 		}
 	}
@@ -157,18 +152,18 @@ func (s *IptablesService) setupVersionChain(version IPVersion, ipsetName string,
 			LogPrefix("ANTISCAN-v4: ").
 			LogLevel("4").
 			Build()
-		if !s.iptablesCmd.RuleExists(version, TableFilter, chainName, logRule) {
-			s.logger.Info().Str("version", string(version)).Msg("Adding LOG rule")
-			if err := s.iptablesCmd.InsertRule(version, TableFilter, chainName, 2, logRule); err != nil {
+		if !s.iptablesCmd.RuleExists(TableFilter, chainName, logRule) {
+			s.logger.Info().Msg("Adding LOG rule")
+			if err := s.iptablesCmd.InsertRule(TableFilter, chainName, 2, logRule); err != nil {
 				return fmt.Errorf("failed to add LOG rule: %w", err)
 			}
 		}
 	}
 
 	dropRule := NewRuleBuilder().MatchSet(ipsetName, "src").Jump(TargetDrop).Build()
-	if !s.iptablesCmd.RuleExists(version, TableFilter, chainName, dropRule) {
-		s.logger.Info().Str("version", string(version)).Msg("Adding DROP rule")
-		if err := s.iptablesCmd.AppendRule(version, TableFilter, chainName, dropRule); err != nil {
+	if !s.iptablesCmd.RuleExists(TableFilter, chainName, dropRule) {
+		s.logger.Info().Msg("Adding DROP rule")
+		if err := s.iptablesCmd.AppendRule(TableFilter, chainName, dropRule); err != nil {
 			return fmt.Errorf("failed to add DROP rule: %w", err)
 		}
 	}
@@ -178,10 +173,10 @@ func (s *IptablesService) setupVersionChain(version IPVersion, ipsetName string,
 
 // IsActive returns true if the SCANNERS-BLOCK chain exists and is linked to INPUT.
 func (s *IptablesService) IsActive() bool {
-	if !s.iptablesCmd.ChainExists(IPv4, TableFilter, chainName) {
+	if !s.iptablesCmd.ChainExists(TableFilter, chainName) {
 		return false
 	}
-	return s.iptablesCmd.RuleExists(IPv4, TableFilter, string(ChainInput), []string{"-j", chainName})
+	return s.iptablesCmd.RuleExists(TableFilter, string(ChainInput), []string{"-j", chainName})
 }
 
 // Save saves iptables rules using netfilter-persistent
@@ -201,7 +196,7 @@ func (s *IptablesService) saveWithNetfilterPersistent() error {
 		return fmt.Errorf("failed to create /etc/iptables: %w", err)
 	}
 
-	if err := s.iptablesCmd.Save(IPv4, IptablesRulesV4Path); err != nil {
+	if err := s.iptablesCmd.Save(IptablesRulesV4Path); err != nil {
 		return fmt.Errorf("failed to save iptables: %w", err)
 	}
 	s.logger.Info().Str("path", IptablesRulesV4Path).Msg("iptables rules saved")

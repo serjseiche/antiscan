@@ -80,14 +80,14 @@ func (s *UninstallerService) stopAndDisableServices() {
 }
 
 func (s *UninstallerService) cleanupIPTablesRuntime() {
-	s.cleanupIPTablesVersion(IPv4)
+	s.cleanupScannersBlockChain()
 	s.cleanupDockerUser()
 }
 
 func (s *UninstallerService) cleanupDockerUser() {
 	dropRule := []string{"-m", "set", "--match-set", ipsetV4Name, "src", "-j", "DROP"}
-	if s.iptablesCmd.RuleExists(IPv4, TableFilter, "DOCKER-USER", dropRule) {
-		if err := s.iptablesCmd.DeleteRule(IPv4, TableFilter, "DOCKER-USER", dropRule); err != nil {
+	if s.iptablesCmd.RuleExists(TableFilter, "DOCKER-USER", dropRule) {
+		if err := s.iptablesCmd.DeleteRule(TableFilter, "DOCKER-USER", dropRule); err != nil {
 			s.logger.Warn().Err(err).Msg("Failed to remove rule from DOCKER-USER, continuing")
 		} else {
 			s.logger.Info().Msg("Rule removed from DOCKER-USER")
@@ -95,21 +95,21 @@ func (s *UninstallerService) cleanupDockerUser() {
 	}
 }
 
-func (s *UninstallerService) cleanupIPTablesVersion(version IPVersion) {
-	if err := s.iptablesCmd.UnlinkChainFromInput(version, chainName); err != nil {
-		s.logger.Warn().Err(err).Str("version", string(version)).Msg("Failed to unlink chain from INPUT, continuing")
+func (s *UninstallerService) cleanupScannersBlockChain() {
+	if err := s.iptablesCmd.UnlinkChainFromInput(chainName); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to unlink chain from INPUT, continuing")
 	}
 
-	if !s.iptablesCmd.ChainExists(version, TableFilter, chainName) {
+	if !s.iptablesCmd.ChainExists(TableFilter, chainName) {
 		return
 	}
 
-	if err := s.iptablesCmd.FlushChain(version, TableFilter, chainName); err != nil {
-		s.logger.Warn().Err(err).Str("version", string(version)).Msg("Failed to flush chain, continuing")
+	if err := s.iptablesCmd.FlushChain(TableFilter, chainName); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to flush chain, continuing")
 	}
 
-	if err := s.iptablesCmd.DeleteChain(version, TableFilter, chainName); err != nil {
-		s.logger.Warn().Err(err).Str("version", string(version)).Msg("Failed to delete chain, continuing")
+	if err := s.iptablesCmd.DeleteChain(TableFilter, chainName); err != nil {
+		s.logger.Warn().Err(err).Msg("Failed to delete chain, continuing")
 	}
 }
 
@@ -205,7 +205,7 @@ func (s *UninstallerService) persistFirewallState() error {
 		return err
 	}
 
-	if err := s.iptablesCmd.Save(IPv4, IptablesRulesV4Path); err != nil {
+	if err := s.iptablesCmd.Save(IptablesRulesV4Path); err != nil {
 		return err
 	}
 
