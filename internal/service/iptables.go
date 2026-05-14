@@ -201,10 +201,10 @@ func (s *IptablesService) saveWithNetfilterPersistent() error {
 		return fmt.Errorf("failed to create /etc/iptables: %w", err)
 	}
 
-	if err := s.iptablesCmd.Save(IPv4, "/etc/iptables/rules.v4"); err != nil {
+	if err := s.iptablesCmd.Save(IPv4, IptablesRulesV4Path); err != nil {
 		return fmt.Errorf("failed to save iptables: %w", err)
 	}
-	s.logger.Info().Msg("iptables rules saved to /etc/iptables/rules.v4")
+	s.logger.Info().Str("path", IptablesRulesV4Path).Msg("iptables rules saved")
 
 	if err := s.cmdSvc.Run("netfilter-persistent", "save"); err != nil {
 		s.logger.Warn().Err(err).Msg("netfilter-persistent save failed")
