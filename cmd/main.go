@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -176,12 +177,15 @@ func runUpdate(cmd *cobra.Command, args []string) {
 
 	installer := service.NewInstallerService(log.Logger)
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Msg("Must be run as root (use sudo)")
+		log.Fatal().Err(err).Msg("Insufficient privileges")
 	}
 
 	cfg, err := state.Load()
-	if err != nil {
+	if errors.Is(err, state.ErrNotFound) {
 		log.Fatal().Msg("Not configured — run antiscan-simple full first")
+	}
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to load state")
 	}
 
 	cmdSvc := service.NewCommandService(log.Logger)
@@ -226,7 +230,7 @@ func runStatus(cmd *cobra.Command, args []string) {
 
 	installer := service.NewInstallerService(log.Logger)
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Msg("Must be run as root (use sudo)")
+		log.Fatal().Err(err).Msg("Insufficient privileges")
 	}
 
 	cmdSvc := service.NewCommandService(log.Logger)
@@ -246,7 +250,7 @@ func runUninstall(cmd *cobra.Command, args []string) {
 	uninstaller := service.NewUninstallerService(log.Logger, cmdSvc)
 
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Msg("Must be run as root (use sudo)")
+		log.Fatal().Err(err).Msg("Insufficient privileges")
 	}
 
 	if !confirmYes {

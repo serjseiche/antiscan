@@ -31,7 +31,7 @@ func (s *InstallerService) EnsureDependencies() error {
 				pkg, pkg, pkg,
 			)
 		}
-		s.logger.Debug().Msgf("%s is installed", pkg)
+		s.logger.Debug().Str("pkg", pkg).Msg("Dependency installed")
 	}
 
 	s.logger.Info().Msg("All dependencies satisfied")

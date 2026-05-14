@@ -153,8 +153,8 @@ prepare_environment() {
   require_linux
   require_root
   require_cmd go
-require_cmd iptables
-	require_cmd iptables-save
+  require_cmd iptables
+  require_cmd iptables-save
   require_cmd ipset
   require_cmd systemctl
 
@@ -169,11 +169,11 @@ run_full_install() {
   log "Running full install"
   "${BIN_PATH}" full -u "${ANTISCANNER_URL}" -u "${GOV_NETWORKS_URL}" --enable-logging
 
-	assert_ipset_exists SCANNERS-BLOCK-V4
+  assert_ipset_exists SCANNERS-BLOCK-V4
 
-	chain_exists iptables || fail "IPv4 chain SCANNERS-BLOCK was not created"
+  chain_exists iptables || fail "IPv4 chain SCANNERS-BLOCK was not created"
 
-	assert_chain_linked_v4
+  assert_chain_linked_v4
 
   assert_file_exists /etc/ipset.conf
   assert_file_exists /etc/systemd/system/antiscan-ipset-restore.service
@@ -197,39 +197,47 @@ run_uninstall_without_log_removal() {
   log "Running uninstall without --remove-logs"
   "${BIN_PATH}" uninstall --yes
 
-	chain_exists iptables && fail "IPv4 chain SCANNERS-BLOCK still exists after uninstall"
+  chain_exists iptables && fail "IPv4 chain SCANNERS-BLOCK still exists after uninstall"
 
-	assert_chain_unlinked_everywhere iptables INPUT ufw-before-input
+  assert_chain_unlinked_everywhere iptables INPUT ufw-before-input
 
-	assert_ipset_not_exists SCANNERS-BLOCK-V4
+  assert_ipset_not_exists SCANNERS-BLOCK-V4
 
-	assert_file_not_exists /etc/ipset.conf
-	assert_file_not_exists /etc/systemd/system/antiscan-ipset-restore.service
-	assert_file_not_exists /etc/systemd/system/antiscan-aggregate.service
-	assert_file_not_exists /etc/systemd/system/antiscan-aggregate.timer
-	assert_file_not_exists /etc/rsyslog.d/10-iptables-scanners.conf
-	assert_file_not_exists /etc/logrotate.d/iptables-scanners
-	assert_file_not_exists /usr/local/bin/antiscan-aggregate-logs.sh
+  assert_file_not_exists /etc/ipset.conf
+  assert_file_not_exists /etc/systemd/system/antiscan-ipset-restore.service
+  assert_file_not_exists /etc/systemd/system/antiscan-aggregate.service
+  assert_file_not_exists /etc/systemd/system/antiscan-aggregate.timer
+  assert_file_not_exists /etc/systemd/system/antiscan-simple-update.service
+  assert_file_not_exists /etc/systemd/system/antiscan-simple-update.timer
+  assert_file_not_exists /etc/systemd/system/antiscan-docker-rules.service
+  assert_file_not_exists /etc/systemd/system/antiscan-docker-rules.timer
+  assert_file_not_exists /etc/rsyslog.d/10-iptables-scanners.conf
+  assert_file_not_exists /etc/logrotate.d/iptables-scanners
+  assert_file_not_exists /usr/local/bin/antiscan-aggregate-logs.sh
 
-	assert_service_not_enabled antiscan-aggregate.timer
-	assert_service_not_enabled antiscan-aggregate.service
-	assert_service_not_enabled antiscan-ipset-restore.service
+  assert_service_not_enabled antiscan-aggregate.timer
+  assert_service_not_enabled antiscan-aggregate.service
+  assert_service_not_enabled antiscan-ipset-restore.service
+  assert_service_not_enabled antiscan-simple-update.timer
+  assert_service_not_enabled antiscan-simple-update.service
+  assert_service_not_enabled antiscan-docker-rules.timer
+  assert_service_not_enabled antiscan-docker-rules.service
 }
 
 run_remove_logs_subscenario() {
   log "Re-running full install for --remove-logs scenario"
   "${BIN_PATH}" full -u "${ANTISCANNER_URL}" -u "${GOV_NETWORKS_URL}" --enable-logging
 
-	touch /var/log/iptables-scanners-ipv4.log
-	touch /var/log/iptables-scanners-aggregate.csv
+  touch /var/log/iptables-scanners-ipv4.log
+  touch /var/log/iptables-scanners-aggregate.csv
 
-	log "Running uninstall with --remove-logs"
-	"${BIN_PATH}" uninstall --yes --remove-logs
+  log "Running uninstall with --remove-logs"
+  "${BIN_PATH}" uninstall --yes --remove-logs
 
-	assert_no_scanner_logs
+  assert_no_scanner_logs
 
-	chain_exists iptables && fail "IPv4 chain SCANNERS-BLOCK still exists after uninstall --remove-logs"
-	assert_ipset_not_exists SCANNERS-BLOCK-V4
+  chain_exists iptables && fail "IPv4 chain SCANNERS-BLOCK still exists after uninstall --remove-logs"
+  assert_ipset_not_exists SCANNERS-BLOCK-V4
 }
 
 main() {

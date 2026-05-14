@@ -33,7 +33,7 @@ func NewStatusService(logger zerolog.Logger, cmdSvc *CommandService) *StatusServ
 
 // Render writes a human-readable status report to w.
 func (s *StatusService) Render(w io.Writer) error {
-	chainExists := s.iptablesCmd.ChainExists(IPv4, TableFilter, chainName)
+	chainExists := s.iptablesCmd.ChainExists(TableFilter, chainName)
 	attachedTo := s.collectAttachments()
 
 	active := chainExists && len(attachedTo) > 0
@@ -96,7 +96,7 @@ func (s *StatusService) collectAttachments() []string {
 	var found []string
 	candidates := []string{"INPUT", "DOCKER-USER"}
 	for _, chain := range candidates {
-		if s.iptablesCmd.RuleExists(IPv4, TableFilter, chain, []string{"-j", chainName}) {
+		if s.iptablesCmd.RuleExists(TableFilter, chain, []string{"-j", chainName}) {
 			found = append(found, chain)
 		}
 	}

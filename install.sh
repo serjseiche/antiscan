@@ -212,10 +212,11 @@ main() {
     platform=$(detect_system)
     log_info "Detected platform: ${platform}"
 
-    # Create a unique temp file and guarantee cleanup on any exit.
-    local temp_file
-    temp_file=$(mktemp /tmp/antiscan-simple.XXXXXX)
+    # Register cleanup before allocating the temp file so a kill between
+    # mktemp and trap cannot leak it.
+    local temp_file=""
     trap 'rm -f "$temp_file"' EXIT
+    temp_file=$(mktemp /tmp/antiscan-simple.XXXXXX)
 
     download_binary "${platform}" "${temp_file}"
     install_binary "${temp_file}"
