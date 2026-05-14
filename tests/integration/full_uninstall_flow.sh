@@ -207,6 +207,10 @@ run_uninstall_without_log_removal() {
 	assert_file_not_exists /etc/systemd/system/antiscan-ipset-restore.service
 	assert_file_not_exists /etc/systemd/system/antiscan-aggregate.service
 	assert_file_not_exists /etc/systemd/system/antiscan-aggregate.timer
+	assert_file_not_exists /etc/systemd/system/antiscan-simple-update.service
+	assert_file_not_exists /etc/systemd/system/antiscan-simple-update.timer
+	assert_file_not_exists /etc/systemd/system/antiscan-docker-rules.service
+	assert_file_not_exists /etc/systemd/system/antiscan-docker-rules.timer
 	assert_file_not_exists /etc/rsyslog.d/10-iptables-scanners.conf
 	assert_file_not_exists /etc/logrotate.d/iptables-scanners
 	assert_file_not_exists /usr/local/bin/antiscan-aggregate-logs.sh
@@ -214,6 +218,10 @@ run_uninstall_without_log_removal() {
 	assert_service_not_enabled antiscan-aggregate.timer
 	assert_service_not_enabled antiscan-aggregate.service
 	assert_service_not_enabled antiscan-ipset-restore.service
+	assert_service_not_enabled antiscan-simple-update.timer
+	assert_service_not_enabled antiscan-simple-update.service
+	assert_service_not_enabled antiscan-docker-rules.timer
+	assert_service_not_enabled antiscan-docker-rules.service
 }
 
 run_remove_logs_subscenario() {

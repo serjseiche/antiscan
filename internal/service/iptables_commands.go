@@ -33,40 +33,22 @@ type Table string
 
 const (
 	TableFilter Table = "filter"
-	TableNat    Table = "nat"
-	TableMangle Table = "mangle"
-	TableRaw    Table = "raw"
 )
 
 // Chain represents iptables chain
 type Chain string
 
 const (
-	ChainInput       Chain = "INPUT"
-	ChainOutput      Chain = "OUTPUT"
-	ChainForward     Chain = "FORWARD"
-	ChainPreRouting  Chain = "PREROUTING"
-	ChainPostRouting Chain = "POSTROUTING"
+	ChainInput Chain = "INPUT"
 )
 
 // Target represents iptables target
 type Target string
 
 const (
-	TargetAccept     Target = "ACCEPT"
-	TargetDrop       Target = "DROP"
-	TargetReject     Target = "REJECT"
-	TargetLog        Target = "LOG"
-	TargetReturn     Target = "RETURN"
-	TargetMasquerade Target = "MASQUERADE"
-)
-
-// RulePosition represents where to insert a rule
-type RulePosition string
-
-const (
-	PositionAppend RulePosition = "append"
-	PositionInsert RulePosition = "insert"
+	TargetDrop   Target = "DROP"
+	TargetLog    Target = "LOG"
+	TargetReturn Target = "RETURN"
 )
 
 // getCommand returns the iptables command (IPv4 only)

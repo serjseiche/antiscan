@@ -231,7 +231,6 @@ WantedBy=timers.target
 // IpsetConfigPaths contains paths for ipset configuration
 const (
 	IpsetConfigPath     = "/etc/ipset.conf"
-	IpsetConfigPathAlt  = "/etc/iptables/ipsets"
 	IptablesRulesV4Path = "/etc/iptables/rules.v4"
 )
 
