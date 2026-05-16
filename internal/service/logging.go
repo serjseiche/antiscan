@@ -140,10 +140,6 @@ func (s *LoggingService) setupAggregationScript() error {
 		return fmt.Errorf("failed to write aggregation script: %w", err)
 	}
 
-	if err := s.cmdSvc.Run("chmod", "+x", AggregateLogsScriptPath); err != nil {
-		return fmt.Errorf("failed to make script executable: %w", err)
-	}
-
 	s.logger.Info().Str("path", AggregateLogsScriptPath).Msg("Aggregation script created")
 	return nil
 }
