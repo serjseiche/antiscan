@@ -117,6 +117,9 @@ func runFull(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to download subnets")
 	}
+	if networks.TotalCount() == 0 {
+		log.Fatal().Msg("All blocklist URLs failed or returned no subnets — aborting")
+	}
 
 	if err := ipsetSvc.Setup(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to setup ipset")
