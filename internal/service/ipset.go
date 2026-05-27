@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/serj1974-maker/antiscan/internal/domain"
+	"github.com/serjseiche/antiscan/internal/domain"
 
 	"github.com/rs/zerolog"
 )

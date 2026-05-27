@@ -7,7 +7,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-REPO="serj1974-maker/antiscan"
+REPO="serjseiche/antiscan"
 BINARY_NAME="antiscan-simple"
 INSTALL_DIR="/usr/local/bin"
 LATEST_RELEASE_URL="https://github.com/${REPO}/releases/latest/download"
@@ -212,11 +212,10 @@ main() {
     platform=$(detect_system)
     log_info "Detected platform: ${platform}"
 
-    # Register cleanup before allocating the temp file so a kill between
-    # mktemp and trap cannot leak it.
-    local temp_file=""
-    trap 'rm -f "$temp_file"' EXIT
+    # Create a unique temp file and guarantee cleanup on any exit.
+    local temp_file
     temp_file=$(mktemp /tmp/antiscan-simple.XXXXXX)
+    trap 'rm -f "$temp_file"' EXIT
 
     download_binary "${platform}" "${temp_file}"
     install_binary "${temp_file}"

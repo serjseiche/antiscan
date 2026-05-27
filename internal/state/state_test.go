@@ -116,8 +116,8 @@ func TestRemoveIdempotent(t *testing.T) {
 }
 
 func TestPath(t *testing.T) {
-	setDir(t, "/tmp/antiscan-test")
-	want := "/tmp/antiscan-test/config.json"
+	setDir(t, "/tmp/tg-test")
+	want := "/tmp/tg-test/config.json"
 	if got := Path(); got != want {
 		t.Errorf("Path() = %q, want %q", got, want)
 	}

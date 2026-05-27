@@ -3,36 +3,9 @@ package service
 import (
 	"fmt"
 	"os"
-	"os/user"
-	"strconv"
-	"strings"
 
 	"github.com/rs/zerolog"
 )
-
-// logFileOwner is the user/group that should own antiscan log files.
-type logFileOwner struct {
-	user, group string
-	uid, gid    int
-}
-
-// resolveLogFileOwner picks the user/group that should own antiscan log files.
-// Debian's rsyslog runs as syslog:adm; other distros lack the syslog user and
-// run rsyslog as root.
-func resolveLogFileOwner() logFileOwner {
-	owner := logFileOwner{user: "root", group: "root"}
-	if u, err := user.Lookup("syslog"); err == nil {
-		if uid, e := strconv.Atoi(u.Uid); e == nil {
-			owner.user, owner.uid = "syslog", uid
-		}
-	}
-	if g, err := user.LookupGroup("adm"); err == nil {
-		if gid, e := strconv.Atoi(g.Gid); e == nil {
-			owner.group, owner.gid = "adm", gid
-		}
-	}
-	return owner
-}
 
 // LoggingService handles logging configuration setup
 type LoggingService struct {
@@ -94,39 +67,34 @@ func (s *LoggingService) setupRsyslog() error {
 }
 
 func (s *LoggingService) createLogFiles() error {
-	owner := resolveLogFileOwner()
+	logFiles := []string{
+		IPv4LogPath,
+	}
 
-	for _, logFile := range []string{IPv4LogPath} {
-		if _, err := os.Stat(logFile); !os.IsNotExist(err) {
-			continue
-		}
+	for _, logFile := range logFiles {
+		if _, err := os.Stat(logFile); os.IsNotExist(err) {
+			f, err := os.Create(logFile)
+			if err != nil {
+				return fmt.Errorf("failed to create %s: %w", logFile, err)
+			}
+			f.Close()
 
-		f, err := os.Create(logFile)
-		if err != nil {
-			return fmt.Errorf("failed to create %s: %w", logFile, err)
-		}
-		f.Close()
+			if err := s.cmdSvc.Run("chown", "syslog:adm", logFile); err != nil {
+				s.logger.Warn().Err(err).Str("file", logFile).Msg("Failed to chown log file")
+			}
+			if err := s.cmdSvc.Run("chmod", "640", logFile); err != nil {
+				s.logger.Warn().Err(err).Str("file", logFile).Msg("Failed to chmod log file")
+			}
 
-		if err := os.Chown(logFile, owner.uid, owner.gid); err != nil {
-			s.logger.Warn().Err(err).Str("file", logFile).Msg("Failed to chown log file")
+			s.logger.Info().Str("file", logFile).Msg("Log file created")
 		}
-		if err := os.Chmod(logFile, 0640); err != nil {
-			s.logger.Warn().Err(err).Str("file", logFile).Msg("Failed to chmod log file")
-		}
-
-		s.logger.Info().
-			Str("file", logFile).
-			Str("owner", owner.user+":"+owner.group).
-			Msg("Log file created")
 	}
 
 	return nil
 }
 
 func (s *LoggingService) setupLogrotate() error {
-	owner := resolveLogFileOwner()
-	content := strings.ReplaceAll(LogrotateConfigTemplate, "{log_owner}", owner.user+" "+owner.group)
-	if err := os.WriteFile(LogrotateConfigPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(LogrotateConfigPath, []byte(LogrotateConfigTemplate), 0644); err != nil {
 		return err
 	}
 	s.logger.Info().Str("path", LogrotateConfigPath).Msg("logrotate config created")
@@ -134,10 +102,12 @@ func (s *LoggingService) setupLogrotate() error {
 }
 
 func (s *LoggingService) setupAggregationScript() error {
-	owner := resolveLogFileOwner()
-	content := strings.ReplaceAll(AggregateLogsScriptTemplate, "{log_owner}", owner.user+":"+owner.group)
-	if err := os.WriteFile(AggregateLogsScriptPath, []byte(content), 0755); err != nil {
+	if err := os.WriteFile(AggregateLogsScriptPath, []byte(AggregateLogsScriptTemplate), 0755); err != nil {
 		return fmt.Errorf("failed to write aggregation script: %w", err)
+	}
+
+	if err := s.cmdSvc.Run("chmod", "+x", AggregateLogsScriptPath); err != nil {
+		return fmt.Errorf("failed to make script executable: %w", err)
 	}
 
 	s.logger.Info().Str("path", AggregateLogsScriptPath).Msg("Aggregation script created")

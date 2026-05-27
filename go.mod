@@ -1,4 +1,4 @@
-module github.com/serj1974-maker/antiscan
+module github.com/serjseiche/antiscan
 
 go 1.25
 

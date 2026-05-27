@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// IptablesCommandService provides high-level iptables operations (IPv4 only).
+// IptablesCommandService provides high-level iptables/ip6tables operations
 type IptablesCommandService struct {
 	logger zerolog.Logger
 	cmdSvc *CommandService
@@ -20,6 +20,13 @@ func NewIptablesCommandService(logger zerolog.Logger, cmdSvc *CommandService) *I
 		cmdSvc: cmdSvc,
 	}
 }
+
+// IPVersion represents IP version
+type IPVersion string
+
+const (
+	IPv4 IPVersion = "ipv4"
+)
 
 // Table represents iptables table
 type Table string
@@ -44,64 +51,84 @@ const (
 	TargetReturn Target = "RETURN"
 )
 
-const iptablesCmd = "iptables"
+// getCommand returns the iptables command (IPv4 only)
+func (s *IptablesCommandService) getCommand(_ IPVersion) string {
+	return "iptables"
+}
 
 // CreateChain creates a new chain
-func (s *IptablesCommandService) CreateChain(table Table, chainName string) error {
+func (s *IptablesCommandService) CreateChain(version IPVersion, table Table, chainName string) error {
+	cmd := s.getCommand(version)
 	s.logger.Debug().
+		Str("version", string(version)).
 		Str("table", string(table)).
 		Str("chain", chainName).
 		Msg("Creating chain")
 
-	return s.cmdSvc.Run(iptablesCmd, "-t", string(table), "-N", chainName)
+	args := []string{"-t", string(table), "-N", chainName}
+	return s.cmdSvc.Run(cmd, args...)
 }
 
 // DeleteChain deletes a chain
-func (s *IptablesCommandService) DeleteChain(table Table, chainName string) error {
+func (s *IptablesCommandService) DeleteChain(version IPVersion, table Table, chainName string) error {
+	cmd := s.getCommand(version)
 	s.logger.Debug().
+		Str("version", string(version)).
 		Str("table", string(table)).
 		Str("chain", chainName).
 		Msg("Deleting chain")
 
-	return s.cmdSvc.Run(iptablesCmd, "-t", string(table), "-X", chainName)
+	args := []string{"-t", string(table), "-X", chainName}
+	return s.cmdSvc.Run(cmd, args...)
 }
 
 // FlushChain flushes all rules from a chain
-func (s *IptablesCommandService) FlushChain(table Table, chainName string) error {
+func (s *IptablesCommandService) FlushChain(version IPVersion, table Table, chainName string) error {
+	cmd := s.getCommand(version)
 	s.logger.Debug().
+		Str("version", string(version)).
 		Str("table", string(table)).
 		Str("chain", chainName).
 		Msg("Flushing chain")
 
-	return s.cmdSvc.Run(iptablesCmd, "-t", string(table), "-F", chainName)
+	args := []string{"-t", string(table), "-F", chainName}
+	return s.cmdSvc.Run(cmd, args...)
 }
 
 // ChainExists checks if a chain exists
-func (s *IptablesCommandService) ChainExists(table Table, chainName string) bool {
-	_, err := s.cmdSvc.RunOutputQuiet(iptablesCmd, "-t", string(table), "-L", chainName, "-n")
+func (s *IptablesCommandService) ChainExists(version IPVersion, table Table, chainName string) bool {
+	cmd := s.getCommand(version)
+	args := []string{"-t", string(table), "-L", chainName, "-n"}
+	_, err := s.cmdSvc.RunOutputQuiet(cmd, args...)
 	return err == nil
 }
 
 // RuleExists checks if a rule exists in a chain
-func (s *IptablesCommandService) RuleExists(table Table, chainName string, ruleSpec []string) bool {
+func (s *IptablesCommandService) RuleExists(version IPVersion, table Table, chainName string, ruleSpec []string) bool {
+	cmd := s.getCommand(version)
 	args := append([]string{"-t", string(table), "-C", chainName}, ruleSpec...)
-	return s.cmdSvc.RunQuiet(iptablesCmd, args...) == nil
+	err := s.cmdSvc.RunQuiet(cmd, args...)
+	return err == nil
 }
 
 // AppendRule appends a rule to a chain
-func (s *IptablesCommandService) AppendRule(table Table, chainName string, ruleSpec []string) error {
+func (s *IptablesCommandService) AppendRule(version IPVersion, table Table, chainName string, ruleSpec []string) error {
+	cmd := s.getCommand(version)
 	s.logger.Debug().
+		Str("version", string(version)).
 		Str("chain", chainName).
 		Strs("rule", ruleSpec).
 		Msg("Appending rule")
 
 	args := append([]string{"-t", string(table), "-A", chainName}, ruleSpec...)
-	return s.cmdSvc.Run(iptablesCmd, args...)
+	return s.cmdSvc.Run(cmd, args...)
 }
 
 // InsertRule inserts a rule at the beginning of a chain
-func (s *IptablesCommandService) InsertRule(table Table, chainName string, position int, ruleSpec []string) error {
+func (s *IptablesCommandService) InsertRule(version IPVersion, table Table, chainName string, position int, ruleSpec []string) error {
+	cmd := s.getCommand(version)
 	s.logger.Debug().
+		Str("version", string(version)).
 		Str("chain", chainName).
 		Int("position", position).
 		Strs("rule", ruleSpec).
@@ -112,43 +139,55 @@ func (s *IptablesCommandService) InsertRule(table Table, chainName string, posit
 		args = append(args, fmt.Sprintf("%d", position))
 	}
 	args = append(args, ruleSpec...)
-	return s.cmdSvc.Run(iptablesCmd, args...)
+	return s.cmdSvc.Run(cmd, args...)
 }
 
 // DeleteRule deletes a rule from a chain
-func (s *IptablesCommandService) DeleteRule(table Table, chainName string, ruleSpec []string) error {
+func (s *IptablesCommandService) DeleteRule(version IPVersion, table Table, chainName string, ruleSpec []string) error {
+	cmd := s.getCommand(version)
 	s.logger.Debug().
+		Str("version", string(version)).
 		Str("chain", chainName).
 		Strs("rule", ruleSpec).
 		Msg("Deleting rule")
 
 	args := append([]string{"-t", string(table), "-D", chainName}, ruleSpec...)
-	return s.cmdSvc.Run(iptablesCmd, args...)
+	return s.cmdSvc.Run(cmd, args...)
 }
 
 // DeleteRuleByNumber deletes a rule by its number in the chain
-func (s *IptablesCommandService) DeleteRuleByNumber(table Table, chainName string, ruleNum int) error {
+func (s *IptablesCommandService) DeleteRuleByNumber(version IPVersion, table Table, chainName string, ruleNum int) error {
+	cmd := s.getCommand(version)
 	s.logger.Debug().
+		Str("version", string(version)).
 		Str("chain", chainName).
 		Int("rule_number", ruleNum).
 		Msg("Deleting rule by number")
 
-	return s.cmdSvc.Run(iptablesCmd, "-t", string(table), "-D", chainName, fmt.Sprintf("%d", ruleNum))
+	args := []string{"-t", string(table), "-D", chainName, fmt.Sprintf("%d", ruleNum)}
+	return s.cmdSvc.Run(cmd, args...)
 }
 
 // ListChain lists all rules in a chain
-func (s *IptablesCommandService) ListChain(table Table, chainName string) (string, error) {
+func (s *IptablesCommandService) ListChain(version IPVersion, table Table, chainName string) (string, error) {
+	cmd := s.getCommand(version)
 	s.logger.Debug().
+		Str("version", string(version)).
 		Str("table", string(table)).
 		Str("chain", chainName).
 		Msg("Listing chain")
 
-	return s.cmdSvc.RunOutput(iptablesCmd, "-t", string(table), "-L", chainName, "-n", "-v")
+	args := []string{"-t", string(table), "-L", chainName, "-n", "-v"}
+	return s.cmdSvc.RunOutput(cmd, args...)
 }
 
 // Save saves iptables rules to a file
-func (s *IptablesCommandService) Save(path string) error {
-	s.logger.Info().Str("path", path).Msg("Saving iptables rules")
+func (s *IptablesCommandService) Save(version IPVersion, path string) error {
+	s.logger.Info().
+		Str("version", string(version)).
+		Str("path", path).
+		Msg("Saving iptables rules")
+
 	return s.cmdSvc.RunToFile(path, "iptables-save")
 }
 
@@ -214,14 +253,16 @@ func (rb *RuleBuilder) Build() []string {
 	return rb.spec
 }
 
-// LinkChainToInput inserts a jump to chainName at the given position of INPUT.
-func (s *IptablesCommandService) LinkChainToInput(chainName string, position int) error {
+// Helper methods for common operations
+
+// LinkChainToInput links a custom chain to INPUT chain
+func (s *IptablesCommandService) LinkChainToInput(version IPVersion, chainName string, position int) error {
 	rule := NewRuleBuilder().JumpChain(chainName).Build()
-	return s.InsertRule(TableFilter, string(ChainInput), position, rule)
+	return s.InsertRule(version, TableFilter, string(ChainInput), position, rule)
 }
 
-// UnlinkChainFromInput removes the jump to chainName from INPUT.
-func (s *IptablesCommandService) UnlinkChainFromInput(chainName string) error {
+// UnlinkChainFromInput unlinks a custom chain from INPUT chain
+func (s *IptablesCommandService) UnlinkChainFromInput(version IPVersion, chainName string) error {
 	rule := NewRuleBuilder().JumpChain(chainName).Build()
-	return s.DeleteRule(TableFilter, string(ChainInput), rule)
+	return s.DeleteRule(version, TableFilter, string(ChainInput), rule)
 }

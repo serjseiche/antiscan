@@ -30,6 +30,10 @@ const (
 // Family represents IP family
 type Family string
 
+const (
+	FamilyIPv4 Family = "inet"
+)
+
 // CreateSetOptions contains options for creating an ipset set
 type CreateSetOptions struct {
 	Name     string

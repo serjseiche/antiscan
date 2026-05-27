@@ -45,8 +45,7 @@ AccuracySec=5sec
 WantedBy=timers.target
 `
 
-	// AggregateLogsScriptTemplate is the bash script for log aggregation.
-	// {log_owner} is replaced with the resolved "user:group" before writing.
+	// AggregateLogsScriptTemplate is the bash script for log aggregation
 	AggregateLogsScriptTemplate = `#!/bin/bash
 # AntiscanSimple Log Aggregation Script
 # Output CSV format: DATETIME|IP_ADDRESS|ASN|NETNAME|PORT
@@ -71,7 +70,7 @@ touch "$WHOIS_CACHE"
 if [ ! -f "$IPV4_LOG" ]; then exit 0; fi
 if ! mv "$IPV4_LOG" "$TEMP_IPV4" 2>/dev/null; then exit 0; fi
 touch "$IPV4_LOG"
-chown {log_owner} "$IPV4_LOG" 2>/dev/null || true
+chown syslog:adm "$IPV4_LOG" 2>/dev/null || true
 chmod 640 "$IPV4_LOG" 2>/dev/null || true
 
 # Return cached or fresh ASN|NETNAME for an IP
@@ -131,8 +130,7 @@ exit 0
 & stop
 `
 
-	// LogrotateConfigTemplate is the logrotate configuration.
-	// {log_owner} is replaced with the resolved "user group" before writing.
+	// LogrotateConfigTemplate is the logrotate configuration
 	LogrotateConfigTemplate = `/var/log/iptables-scanners-*.log {
     daily
     rotate 7
@@ -140,7 +138,7 @@ exit 0
     delaycompress
     missingok
     notifempty
-    create 0640 {log_owner}
+    create 0640 syslog adm
     sharedscripts
     postrotate
         /usr/lib/rsyslog/rsyslog-rotate
@@ -154,7 +152,7 @@ exit 0
     delaycompress
     missingok
     notifempty
-    create 0640 {log_owner}
+    create 0640 syslog adm
 }
 `
 )
@@ -233,6 +231,7 @@ WantedBy=timers.target
 // IpsetConfigPaths contains paths for ipset configuration
 const (
 	IpsetConfigPath     = "/etc/ipset.conf"
+	IpsetConfigPathAlt  = "/etc/iptables/ipsets"
 	IptablesRulesV4Path = "/etc/iptables/rules.v4"
 )
 

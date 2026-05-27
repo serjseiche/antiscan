@@ -106,24 +106,6 @@ func (s *CommandService) RunToFile(path string, name string, args ...string) err
 	return nil
 }
 
-// RunShell executes a shell command (sh -c "command")
-func (s *CommandService) RunShell(command string) error {
-	s.logger.Debug().
-		Str("shell_command", command).
-		Msg("Executing shell command")
-
-	return s.Run("sh", "-c", command)
-}
-
-// RunShellOutput executes a shell command and returns output
-func (s *CommandService) RunShellOutput(command string) (string, error) {
-	s.logger.Debug().
-		Str("shell_command", command).
-		Msg("Executing shell command with output")
-
-	return s.RunOutput("sh", "-c", command)
-}
-
 // CommandExists checks if a command is available in PATH
 func (s *CommandService) CommandExists(name string) bool {
 	_, err := exec.LookPath(name)
@@ -225,23 +207,4 @@ func (s *CommandService) DaemonReload() error {
 	return s.Run("systemctl", "daemon-reload")
 }
 
-// IsPackageInstalled checks if a package is installed (Debian/Ubuntu)
-func (s *CommandService) IsPackageInstalled(packageName string) bool {
-	if !s.CommandExists("dpkg") {
-		return false
-	}
 
-	output, err := s.RunOutput("dpkg", "-l", packageName)
-	if err != nil {
-		return false
-	}
-
-	// Check if package is installed (starts with "ii")
-	for _, line := range strings.Split(output, "\n") {
-		if strings.HasPrefix(line, "ii") && strings.Contains(line, packageName) {
-			return true
-		}
-	}
-
-	return false
-}

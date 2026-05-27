@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -10,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/serj1974-maker/antiscan/internal/logger"
-	"github.com/serj1974-maker/antiscan/internal/service"
-	"github.com/serj1974-maker/antiscan/internal/state"
+	"github.com/serjseiche/antiscan/internal/logger"
+	"github.com/serjseiche/antiscan/internal/service"
+	"github.com/serjseiche/antiscan/internal/state"
 )
 
 var (
@@ -117,9 +116,6 @@ func runFull(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to download subnets")
 	}
-	if networks.TotalCount() == 0 {
-		log.Fatal().Msg("All blocklist URLs failed or returned no subnets — aborting")
-	}
 
 	if err := ipsetSvc.Setup(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to setup ipset")
@@ -180,15 +176,12 @@ func runUpdate(cmd *cobra.Command, args []string) {
 
 	installer := service.NewInstallerService(log.Logger)
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Err(err).Msg("Insufficient privileges")
+		log.Fatal().Msg("Must be run as root (use sudo)")
 	}
 
 	cfg, err := state.Load()
-	if errors.Is(err, state.ErrNotFound) {
-		log.Fatal().Msg("Not configured — run antiscan-simple full first")
-	}
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to load state")
+		log.Fatal().Msg("Not configured — run antiscan-simple full first")
 	}
 
 	cmdSvc := service.NewCommandService(log.Logger)
@@ -233,7 +226,7 @@ func runStatus(cmd *cobra.Command, args []string) {
 
 	installer := service.NewInstallerService(log.Logger)
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Err(err).Msg("Insufficient privileges")
+		log.Fatal().Msg("Must be run as root (use sudo)")
 	}
 
 	cmdSvc := service.NewCommandService(log.Logger)
@@ -253,7 +246,7 @@ func runUninstall(cmd *cobra.Command, args []string) {
 	uninstaller := service.NewUninstallerService(log.Logger, cmdSvc)
 
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Err(err).Msg("Insufficient privileges")
+		log.Fatal().Msg("Must be run as root (use sudo)")
 	}
 
 	if !confirmYes {
