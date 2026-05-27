@@ -94,12 +94,17 @@ func (s *UninstallerService) cleanupIPTablesRuntime() {
 }
 
 func (s *UninstallerService) cleanupDockerUser() {
-	dropRule := []string{"-m", "set", "--match-set", ipsetV4Name, "src", "-j", "DROP"}
-	if s.iptablesCmd.RuleExists(IPv4, TableFilter, "DOCKER-USER", dropRule) {
-		if err := s.iptablesCmd.DeleteRule(IPv4, TableFilter, "DOCKER-USER", dropRule); err != nil {
-			s.logger.Warn().Err(err).Msg("Failed to remove rule from DOCKER-USER, continuing")
-		} else {
-			s.logger.Info().Msg("Rule removed from DOCKER-USER")
+	rules := [][]string{
+		{"-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "RETURN"},
+		{"-m", "set", "--match-set", ipsetV4Name, "src", "-j", "DROP"},
+	}
+	for _, rule := range rules {
+		if s.iptablesCmd.RuleExists(IPv4, TableFilter, "DOCKER-USER", rule) {
+			if err := s.iptablesCmd.DeleteRule(IPv4, TableFilter, "DOCKER-USER", rule); err != nil {
+				s.logger.Warn().Err(err).Msg("Failed to remove rule from DOCKER-USER, continuing")
+			} else {
+				s.logger.Info().Msg("Rule removed from DOCKER-USER")
+			}
 		}
 	}
 }

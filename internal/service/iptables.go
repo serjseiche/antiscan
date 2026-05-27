@@ -86,6 +86,16 @@ func (s *IptablesService) setupDockerUserChain() error {
 		s.logger.Debug().Bool("chain_created_now", justCreated).Msg("DOCKER-USER DROP rule already present")
 	}
 
+	// Insert ESTABLISHED/RELATED RETURN at position 1, pushing DROP to position 2.
+	// Mirrors SCANNERS-BLOCK behaviour: preserve existing connections, only block new ones.
+	establishedRule := NewRuleBuilder().MatchConntrack("ESTABLISHED", "RELATED").Jump(TargetReturn).Build()
+	if !s.iptablesCmd.RuleExists(IPv4, TableFilter, dockerUserChain, establishedRule) {
+		s.logger.Info().Msg("Adding ESTABLISHED/RELATED return rule to DOCKER-USER")
+		if err := s.iptablesCmd.InsertRule(IPv4, TableFilter, dockerUserChain, 1, establishedRule); err != nil {
+			return fmt.Errorf("failed to add ESTABLISHED rule to DOCKER-USER: %w", err)
+		}
+	}
+
 	if err := s.createDockerRuleService(); err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to create antiscan-docker-rules service")
 	}
