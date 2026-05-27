@@ -79,6 +79,9 @@ func ParseInterval(s string) (time.Duration, error) {
 
 // FormatDurationForSystemd converts a duration to a systemd-compatible string.
 // Panics if d is less than one second, since systemd does not accept "0s".
+// The panic is intentional: ParseInterval already rejects non-positive durations,
+// and no valid user-facing interval (seconds, minutes, hours, days) is sub-second.
+// A sub-second value reaching here indicates a programming error, not user input.
 func FormatDurationForSystemd(d time.Duration) string {
 	if d < time.Second {
 		panic(fmt.Sprintf("FormatDurationForSystemd: duration %v is less than 1s and would produce an invalid systemd timer value", d))

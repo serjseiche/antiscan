@@ -29,10 +29,6 @@ func (s *LoggingService) Setup() error {
 		return fmt.Errorf("failed to setup rsyslog: %w", err)
 	}
 
-	if err := s.createLogFiles(); err != nil {
-		return fmt.Errorf("failed to create log files: %w", err)
-	}
-
 	if err := s.setupLogrotate(); err != nil {
 		return fmt.Errorf("failed to setup logrotate: %w", err)
 	}
@@ -63,35 +59,6 @@ func (s *LoggingService) setupRsyslog() error {
 		return fmt.Errorf("write %s: %w", RsyslogConfigPath, err)
 	}
 	s.logger.Info().Str("path", RsyslogConfigPath).Msg("rsyslog config created")
-	return nil
-}
-
-func (s *LoggingService) createLogFiles() error {
-	logFiles := []string{
-		IPv4LogPath,
-	}
-
-	for _, logFile := range logFiles {
-		if _, err := os.Stat(logFile); os.IsNotExist(err) {
-			f, err := os.Create(logFile)
-			if err != nil {
-				return fmt.Errorf("failed to create %s: %w", logFile, err)
-			}
-			if err := f.Close(); err != nil {
-				return fmt.Errorf("failed to close %s: %w", logFile, err)
-			}
-
-			if err := s.cmdSvc.Run("chown", "syslog:adm", logFile); err != nil {
-				s.logger.Warn().Err(err).Str("file", logFile).Msg("Failed to chown log file")
-			}
-			if err := s.cmdSvc.Run("chmod", "640", logFile); err != nil {
-				s.logger.Warn().Err(err).Str("file", logFile).Msg("Failed to chmod log file")
-			}
-
-			s.logger.Info().Str("file", logFile).Msg("Log file created")
-		}
-	}
-
 	return nil
 }
 
@@ -129,12 +96,8 @@ func (s *LoggingService) setupAggregationTimer() error {
 		s.logger.Warn().Err(err).Msg("daemon-reload failed")
 	}
 
-	if err := s.cmdSvc.Run("systemctl", "enable", "antiscan-aggregate.timer"); err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to enable antiscan-aggregate.timer")
-	}
-
-	if err := s.cmdSvc.Run("systemctl", "start", "antiscan-aggregate.timer"); err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to start antiscan-aggregate.timer")
+	if err := s.cmdSvc.Run("systemctl", "enable", "--now", "antiscan-aggregate.timer"); err != nil {
+		return fmt.Errorf("failed to enable aggregation timer: %w", err)
 	}
 
 	s.logger.Info().Msg("Aggregation timer enabled (runs every 30 seconds)")

@@ -14,10 +14,10 @@ type InstallerService struct {
 }
 
 // NewInstallerService creates a new installer service
-func NewInstallerService(logger zerolog.Logger) *InstallerService {
+func NewInstallerService(logger zerolog.Logger, cmdSvc *CommandService) *InstallerService {
 	return &InstallerService{
 		logger: logger,
-		cmdSvc: NewCommandService(logger),
+		cmdSvc: cmdSvc,
 	}
 }
 
@@ -39,7 +39,10 @@ func (s *InstallerService) EnsureDependencies() error {
 	return nil
 }
 
-// CheckNoUFW returns an error if UFW is detected. antiscan-simple requires direct iptables access.
+// CheckNoUFW returns an error if the ufw binary is present.
+// Intentionally checks binary presence rather than service-active state: even an
+// inactive UFW installation can re-activate on reboot or package update and conflict
+// with direct iptables management. Removing the package is the only safe option.
 func (s *InstallerService) CheckNoUFW() error {
 	if s.cmdSvc.CommandExists("ufw") {
 		return fmt.Errorf(
