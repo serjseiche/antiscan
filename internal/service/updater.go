@@ -79,6 +79,9 @@ func ParseInterval(s string) (time.Duration, error) {
 
 // FormatDurationForSystemd converts a duration to a systemd-compatible string.
 func FormatDurationForSystemd(d time.Duration) string {
+	if d%(24*time.Hour) == 0 {
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
+	}
 	if d%time.Hour == 0 {
 		return fmt.Sprintf("%dh", int(d.Hours()))
 	}

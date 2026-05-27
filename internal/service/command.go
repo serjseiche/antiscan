@@ -206,5 +206,3 @@ func (s *CommandService) DaemonReload() error {
 	s.logger.Info().Msg("Reloading systemd daemon")
 	return s.Run("systemctl", "daemon-reload")
 }
-
-

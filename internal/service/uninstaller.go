@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/serjseiche/antiscan/internal/state"
 	"github.com/rs/zerolog"
+	"github.com/serjseiche/antiscan/internal/state"
 )
 
 // UninstallerService reverts AntiscanSimple-managed system changes.

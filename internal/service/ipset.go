@@ -33,7 +33,7 @@ func NewIpsetService(logger zerolog.Logger, cmdSvc *CommandService) *IpsetServic
 func (s *IpsetService) Setup() error {
 	s.logger.Info().Msg("Setting up ipset")
 
-	if err := s.setupSet(ipsetV4Name, "inet"); err != nil {
+	if err := s.setupSet(ipsetV4Name, string(FamilyIPv4)); err != nil {
 		return fmt.Errorf("failed to setup IPv4 set: %w", err)
 	}
 

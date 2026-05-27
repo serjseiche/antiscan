@@ -182,12 +182,12 @@ func runUpdate(cmd *cobra.Command, args []string) {
 
 	installer := service.NewInstallerService(log.Logger)
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Msg("Must be run as root (use sudo)")
+		log.Fatal().Err(err).Msg("Must be run as root (use sudo)")
 	}
 
 	cfg, err := state.Load()
 	if err != nil {
-		log.Fatal().Msg("Not configured — run antiscan-simple full first")
+		log.Fatal().Err(err).Msg("Not configured — run antiscan-simple full first")
 	}
 
 	cmdSvc := service.NewCommandService(log.Logger)
@@ -232,7 +232,7 @@ func runStatus(cmd *cobra.Command, args []string) {
 
 	installer := service.NewInstallerService(log.Logger)
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Msg("Must be run as root (use sudo)")
+		log.Fatal().Err(err).Msg("Must be run as root (use sudo)")
 	}
 
 	cmdSvc := service.NewCommandService(log.Logger)

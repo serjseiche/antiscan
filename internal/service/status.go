@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/serjseiche/antiscan/internal/state"
 	"github.com/rs/zerolog"
+	"github.com/serjseiche/antiscan/internal/state"
 )
 
 // StatusService renders the current antiscan-simple protection state.

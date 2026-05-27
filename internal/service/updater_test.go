@@ -53,12 +53,12 @@ func TestFormatDurationForSystemd(t *testing.T) {
 		input time.Duration
 		want  string
 	}{
-		{24 * time.Hour, "24h"},
+		{24 * time.Hour, "1d"},
 		{time.Hour, "1h"},
 		{30 * time.Minute, "30min"},
 		{time.Minute, "1min"},
 		{90 * time.Second, "90s"},
-		{7 * 24 * time.Hour, "168h"},
+		{7 * 24 * time.Hour, "7d"},
 	}
 
 	for _, tc := range tests {

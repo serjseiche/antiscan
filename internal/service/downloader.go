@@ -124,4 +124,3 @@ func (d *Downloader) downloadSingle(url string) ([]string, error) {
 
 	return subnets, nil
 }
-
