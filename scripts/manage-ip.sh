@@ -8,7 +8,6 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 IPSET_NAME="SCANNERS-BLOCK-V4"
-IPSET_CONF="/etc/ipset.conf"
 
 log_info()  { echo -e "${GREEN}[INFO]${NC} $1" >&2; }
 log_warn()  { echo -e "${YELLOW}[WARN]${NC} $1" >&2; }
@@ -85,5 +84,3 @@ case "$COMMAND" in
         ;;
 esac
 
-ipset save > "$IPSET_CONF"
-log_info "Saved ipset configuration to $IPSET_CONF"
