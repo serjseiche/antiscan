@@ -213,8 +213,8 @@ func runUpdate(cmd *cobra.Command, args []string) {
 		log.Warn().Err(err).Msg("Failed to save ipset configuration")
 	}
 
-	if !iptablesSvc.IsActive() {
-		log.Warn().Msg("SCANNERS-BLOCK chain is missing or not linked to INPUT — ipset was updated but traffic is NOT being blocked; run 'antiscan-simple full' to restore protection")
+	if err := iptablesSvc.SetupChain(); err != nil {
+		log.Fatal().Err(err).Msg("Failed to configure iptables chains")
 	}
 
 	cfg.LastUpdate = time.Now()

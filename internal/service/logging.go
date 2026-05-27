@@ -96,12 +96,8 @@ func (s *LoggingService) setupAggregationTimer() error {
 		s.logger.Warn().Err(err).Msg("daemon-reload failed")
 	}
 
-	if err := s.cmdSvc.Run("systemctl", "enable", "antiscan-aggregate.timer"); err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to enable antiscan-aggregate.timer")
-	}
-
-	if err := s.cmdSvc.Run("systemctl", "start", "antiscan-aggregate.timer"); err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to start antiscan-aggregate.timer")
+	if err := s.cmdSvc.Run("systemctl", "enable", "--now", "antiscan-aggregate.timer"); err != nil {
+		return fmt.Errorf("failed to enable aggregation timer: %w", err)
 	}
 
 	s.logger.Info().Msg("Aggregation timer enabled (runs every 30 seconds)")
