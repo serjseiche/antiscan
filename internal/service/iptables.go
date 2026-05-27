@@ -107,7 +107,7 @@ func (s *IptablesService) createDockerRuleService() error {
 		return fmt.Errorf("enable antiscan-docker-rules.service: %w", err)
 	}
 	if err := s.cmdSvc.Run("systemctl", "enable", "--now", "antiscan-docker-rules.timer"); err != nil {
-		s.logger.Warn().Err(err).Msg("Failed to enable antiscan-docker-rules.timer")
+		return fmt.Errorf("enable antiscan-docker-rules.timer: %w", err)
 	}
 	s.logger.Info().Msg("antiscan-docker-rules service and timer enabled")
 	return nil

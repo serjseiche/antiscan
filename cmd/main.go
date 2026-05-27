@@ -90,7 +90,7 @@ func runFull(cmd *cobra.Command, args []string) {
 	log.Info().Msg("=== Full setup ===")
 
 	cmdSvc := service.NewCommandService(log.Logger)
-	installer := service.NewInstallerService(log.Logger)
+	installer := service.NewInstallerService(log.Logger, cmdSvc)
 	downloader := service.NewDownloader(log.Logger)
 	ipsetSvc := service.NewIpsetService(log.Logger, cmdSvc)
 	iptablesSvc := service.NewIptablesService(log.Logger, cmdSvc, enableLogging)
@@ -137,7 +137,7 @@ func runFull(cmd *cobra.Command, args []string) {
 
 	if enableLogging {
 		if err := loggingSvc.Setup(); err != nil {
-			log.Warn().Err(err).Msg("Failed to setup logging configuration")
+			log.Fatal().Err(err).Msg("Failed to setup logging configuration")
 		}
 	}
 
@@ -180,7 +180,8 @@ func runUpdate(cmd *cobra.Command, args []string) {
 	log := logger.Global()
 	log.Info().Msg("=== Updating blocklists ===")
 
-	installer := service.NewInstallerService(log.Logger)
+	cmdSvc := service.NewCommandService(log.Logger)
+	installer := service.NewInstallerService(log.Logger, cmdSvc)
 	if err := installer.CheckRootPrivileges(); err != nil {
 		log.Fatal().Err(err).Msg("Must be run as root (use sudo)")
 	}
@@ -190,7 +191,6 @@ func runUpdate(cmd *cobra.Command, args []string) {
 		log.Fatal().Err(err).Msg("Not configured — run antiscan-simple full first")
 	}
 
-	cmdSvc := service.NewCommandService(log.Logger)
 	downloader := service.NewDownloader(log.Logger)
 	ipsetSvc := service.NewIpsetService(log.Logger, cmdSvc)
 	iptablesSvc := service.NewIptablesService(log.Logger, cmdSvc, cfg.EnableLogging)
@@ -230,12 +230,12 @@ func runUpdate(cmd *cobra.Command, args []string) {
 func runStatus(cmd *cobra.Command, args []string) {
 	log := logger.Global()
 
-	installer := service.NewInstallerService(log.Logger)
+	cmdSvc := service.NewCommandService(log.Logger)
+	installer := service.NewInstallerService(log.Logger, cmdSvc)
 	if err := installer.CheckRootPrivileges(); err != nil {
 		log.Fatal().Err(err).Msg("Must be run as root (use sudo)")
 	}
 
-	cmdSvc := service.NewCommandService(log.Logger)
 	statusSvc := service.NewStatusService(log.Logger, cmdSvc)
 
 	if err := statusSvc.Render(os.Stdout); err != nil {
@@ -248,7 +248,7 @@ func runUninstall(cmd *cobra.Command, args []string) {
 	log.Info().Msg("=== Uninstalling antiscan-simple ===")
 
 	cmdSvc := service.NewCommandService(log.Logger)
-	installer := service.NewInstallerService(log.Logger)
+	installer := service.NewInstallerService(log.Logger, cmdSvc)
 	uninstaller := service.NewUninstallerService(log.Logger, cmdSvc)
 
 	if err := installer.CheckRootPrivileges(); err != nil {
