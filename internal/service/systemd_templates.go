@@ -71,9 +71,6 @@ touch "$WHOIS_CACHE"
 # it reopens the path; we process whatever ends up in TEMP_IPV4.
 if [ ! -f "$IPV4_LOG" ]; then exit 0; fi
 if ! mv "$IPV4_LOG" "$TEMP_IPV4" 2>/dev/null; then exit 0; fi
-touch "$IPV4_LOG"
-chown syslog:adm "$IPV4_LOG" 2>/dev/null || true
-chmod 640 "$IPV4_LOG" 2>/dev/null || true
 
 # Return cached or fresh ASN|NETNAME for an IP
 get_ip_info() {
