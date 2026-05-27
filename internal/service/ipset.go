@@ -68,21 +68,21 @@ func (s *IpsetService) Fill(networks *domain.NetworkList) error {
 		Int("ipv4_count", networks.IPv4Count()).
 		Msg("Filling ipset")
 
-	added, errors := s.fillSet(ipsetV4Name, networks.IPv4Subnets, "IPv4")
+	added, errCount := s.fillSet(ipsetV4Name, networks.IPv4Subnets, "IPv4")
 
 	s.logger.Info().
 		Int("added", added).
-		Int("errors", errors).
+		Int("errors", errCount).
 		Msg("ipset filled")
 
-	if errors > 0 {
-		return fmt.Errorf("failed to add %d subnet(s) to ipset", errors)
+	if errCount > 0 {
+		return fmt.Errorf("failed to add %d subnet(s) to ipset", errCount)
 	}
 	return nil
 }
 
 // fillSet adds subnets to a specific ipset set
-func (s *IpsetService) fillSet(setName string, subnets []string, label string) (added, errors int) {
+func (s *IpsetService) fillSet(setName string, subnets []string, label string) (added, errCount int) {
 	total := len(subnets)
 	s.logger.Info().Int("total", total).Str("type", label).Msg("Adding subnets to ipset")
 
@@ -97,7 +97,7 @@ func (s *IpsetService) fillSet(setName string, subnets []string, label string) (
 					Msg("Progress")
 			}
 		} else {
-			errors++
+			errCount++
 			s.logger.Warn().
 				Err(err).
 				Str("subnet", subnet).
@@ -106,7 +106,7 @@ func (s *IpsetService) fillSet(setName string, subnets []string, label string) (
 		}
 	}
 
-	return added, errors
+	return added, errCount
 }
 
 // Save saves ipset configuration to file

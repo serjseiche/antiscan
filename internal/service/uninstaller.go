@@ -28,9 +28,18 @@ func NewUninstallerService(logger zerolog.Logger, cmdSvc *CommandService) *Unins
 }
 
 // Uninstall removes AntiscanSimple artifacts and restores firewall state.
+//
+// LIMITATION: Any iptables rules that existed before running "antiscan-simple
+// full" are not preserved. The "full" command flushed and replaced the
+// SCANNERS-BLOCK chain and saved the resulting ruleset. After uninstall the
+// saved ruleset (/etc/iptables/rules.v4) will reflect the post-full state
+// minus the SCANNERS-BLOCK chain — it will not match what was present before
+// the initial install. Users who had custom iptables rules should restore them
+// manually from a backup after uninstalling.
 func (s *UninstallerService) Uninstall(removeLogs bool) error {
 	s.logger.Info().Msg("=== Uninstalling AntiscanSimple ===")
 	s.logger.Info().Msg("AntiscanSimple does not modify Linux routing tables (ip rule/ip route) — skipping routing rollback")
+	s.logger.Warn().Msg("NOTE: pre-existing iptables rules from before the initial install are not restored — restore them manually from a backup if needed")
 
 	s.stopAndDisableServices()
 	s.cleanupIPTablesRuntime()

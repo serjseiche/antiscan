@@ -60,7 +60,7 @@ func (s *LoggingService) Setup() error {
 
 func (s *LoggingService) setupRsyslog() error {
 	if err := os.WriteFile(RsyslogConfigPath, []byte(RsyslogConfigTemplate), 0644); err != nil {
-		return err
+		return fmt.Errorf("write %s: %w", RsyslogConfigPath, err)
 	}
 	s.logger.Info().Str("path", RsyslogConfigPath).Msg("rsyslog config created")
 	return nil
@@ -77,7 +77,9 @@ func (s *LoggingService) createLogFiles() error {
 			if err != nil {
 				return fmt.Errorf("failed to create %s: %w", logFile, err)
 			}
-			f.Close()
+			if err := f.Close(); err != nil {
+				return fmt.Errorf("failed to close %s: %w", logFile, err)
+			}
 
 			if err := s.cmdSvc.Run("chown", "syslog:adm", logFile); err != nil {
 				s.logger.Warn().Err(err).Str("file", logFile).Msg("Failed to chown log file")
@@ -95,19 +97,16 @@ func (s *LoggingService) createLogFiles() error {
 
 func (s *LoggingService) setupLogrotate() error {
 	if err := os.WriteFile(LogrotateConfigPath, []byte(LogrotateConfigTemplate), 0644); err != nil {
-		return err
+		return fmt.Errorf("write %s: %w", LogrotateConfigPath, err)
 	}
 	s.logger.Info().Str("path", LogrotateConfigPath).Msg("logrotate config created")
 	return nil
 }
 
 func (s *LoggingService) setupAggregationScript() error {
+	// 0755 already sets the execute bit; no separate chmod needed.
 	if err := os.WriteFile(AggregateLogsScriptPath, []byte(AggregateLogsScriptTemplate), 0755); err != nil {
 		return fmt.Errorf("failed to write aggregation script: %w", err)
-	}
-
-	if err := s.cmdSvc.Run("chmod", "+x", AggregateLogsScriptPath); err != nil {
-		return fmt.Errorf("failed to make script executable: %w", err)
 	}
 
 	s.logger.Info().Str("path", AggregateLogsScriptPath).Msg("Aggregation script created")
@@ -117,12 +116,12 @@ func (s *LoggingService) setupAggregationScript() error {
 // setupAggregationTimer creates a systemd service+timer that runs the aggregation script every 30 seconds.
 func (s *LoggingService) setupAggregationTimer() error {
 	if err := os.WriteFile(AggregateLogsServicePath, []byte(AggregateLogsServiceTemplate), 0644); err != nil {
-		return err
+		return fmt.Errorf("write %s: %w", AggregateLogsServicePath, err)
 	}
 	s.logger.Info().Str("path", AggregateLogsServicePath).Msg("Aggregation systemd service created")
 
 	if err := os.WriteFile(AggregateLogsTimerPath, []byte(AggregateLogsTimerTemplate), 0644); err != nil {
-		return err
+		return fmt.Errorf("write %s: %w", AggregateLogsTimerPath, err)
 	}
 	s.logger.Info().Str("path", AggregateLogsTimerPath).Msg("Aggregation systemd timer created")
 

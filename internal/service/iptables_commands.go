@@ -155,19 +155,6 @@ func (s *IptablesCommandService) DeleteRule(version IPVersion, table Table, chai
 	return s.cmdSvc.Run(cmd, args...)
 }
 
-// DeleteRuleByNumber deletes a rule by its number in the chain
-func (s *IptablesCommandService) DeleteRuleByNumber(version IPVersion, table Table, chainName string, ruleNum int) error {
-	cmd := s.getCommand(version)
-	s.logger.Debug().
-		Str("version", string(version)).
-		Str("chain", chainName).
-		Int("rule_number", ruleNum).
-		Msg("Deleting rule by number")
-
-	args := []string{"-t", string(table), "-D", chainName, fmt.Sprintf("%d", ruleNum)}
-	return s.cmdSvc.Run(cmd, args...)
-}
-
 // ListChain lists all rules in a chain
 func (s *IptablesCommandService) ListChain(version IPVersion, table Table, chainName string) (string, error) {
 	cmd := s.getCommand(version)

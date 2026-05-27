@@ -71,6 +71,7 @@ func Save(cfg *Config) error {
 		return fmt.Errorf("write state: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp) // best-effort cleanup of the temp file
 		return fmt.Errorf("replace state: %w", err)
 	}
 	return nil

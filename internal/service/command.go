@@ -90,7 +90,7 @@ func (s *CommandService) RunToFile(path string, name string, args ...string) err
 		Str("output_file", path).
 		Msg("Executing command with file output")
 
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("open %s: %w", path, err)
 	}

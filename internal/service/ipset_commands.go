@@ -95,12 +95,6 @@ func (s *IpsetCommandService) Add(setName, entry string) error {
 	return s.cmdSvc.Run("ipset", "add", setName, entry)
 }
 
-// List lists entries in an ipset set
-func (s *IpsetCommandService) List(name string) (string, error) {
-	s.logger.Debug().Str("name", name).Msg("Listing ipset set")
-	return s.cmdSvc.RunOutput("ipset", "list", name)
-}
-
 // Exists checks if an ipset set exists
 func (s *IpsetCommandService) Exists(name string) bool {
 	_, err := s.cmdSvc.RunOutputQuiet("ipset", "list", name)

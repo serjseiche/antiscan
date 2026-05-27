@@ -184,15 +184,27 @@ func (s *IptablesService) IsActive() bool {
 	return s.iptablesCmd.RuleExists(IPv4, TableFilter, string(ChainInput), []string{"-j", chainName})
 }
 
-// Save saves iptables rules using netfilter-persistent
+// Save saves iptables rules. On Debian-based systems netfilter-persistent is
+// used. On other systems iptables-save is called directly (rules will not
+// survive a reboot without additional configuration such as an iptables systemd
+// service, which is outside the scope of this tool).
 func (s *IptablesService) Save() error {
 	s.logger.Info().Msg("Saving iptables rules")
 
-	if !s.cmdSvc.CommandExists("netfilter-persistent") {
-		return fmt.Errorf("netfilter-persistent is not installed, run dependency setup first")
+	if s.cmdSvc.CommandExists("netfilter-persistent") {
+		return s.saveWithNetfilterPersistent()
 	}
 
-	return s.saveWithNetfilterPersistent()
+	// Non-Debian fallback: persist via iptables-save only.
+	s.logger.Warn().Msg("netfilter-persistent not found; saving rules with iptables-save only (rules may not survive reboot)")
+	if err := os.MkdirAll("/etc/iptables", 0755); err != nil {
+		return fmt.Errorf("failed to create /etc/iptables: %w", err)
+	}
+	if err := s.iptablesCmd.Save(IPv4, IptablesRulesV4Path); err != nil {
+		return fmt.Errorf("failed to save iptables rules: %w", err)
+	}
+	s.logger.Info().Str("path", IptablesRulesV4Path).Msg("iptables rules saved")
+	return nil
 }
 
 // saveWithNetfilterPersistent saves using netfilter-persistent

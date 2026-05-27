@@ -86,6 +86,10 @@ func (d *Downloader) Download(urls []string) (*domain.NetworkList, error) {
 		Int("total", networks.IPv4Count()).
 		Msg("Download complete")
 
+	if networks.IPv4Count() == 0 {
+		return nil, fmt.Errorf("all URLs failed or returned no valid IPv4 subnets")
+	}
+
 	return networks, nil
 }
 

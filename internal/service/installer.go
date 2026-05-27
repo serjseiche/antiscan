@@ -3,20 +3,21 @@ package service
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/rs/zerolog"
 )
 
 // InstallerService handles dependency checks
 type InstallerService struct {
-	logger zerolog.Logger
+	logger  zerolog.Logger
+	cmdSvc  *CommandService
 }
 
 // NewInstallerService creates a new installer service
 func NewInstallerService(logger zerolog.Logger) *InstallerService {
 	return &InstallerService{
 		logger: logger,
+		cmdSvc: NewCommandService(logger),
 	}
 }
 
@@ -25,7 +26,7 @@ func (s *InstallerService) EnsureDependencies() error {
 	s.logger.Info().Msg("Checking dependencies")
 
 	for _, pkg := range []string{"iptables", "ipset"} {
-		if !s.commandExists(pkg) {
+		if !s.cmdSvc.CommandExists(pkg) {
 			return fmt.Errorf(
 				"%s is not installed.\nInstall manually:\n  Debian/Ubuntu: sudo apt-get install %s\n  RHEL/CentOS:   sudo yum install %s",
 				pkg, pkg, pkg,
@@ -40,7 +41,7 @@ func (s *InstallerService) EnsureDependencies() error {
 
 // CheckNoUFW returns an error if UFW is detected. antiscan-simple requires direct iptables access.
 func (s *InstallerService) CheckNoUFW() error {
-	if s.commandExists("ufw") {
+	if s.cmdSvc.CommandExists("ufw") {
 		return fmt.Errorf(
 			"UFW detected. antiscan-simple requires direct iptables access.\n" +
 				"Remove UFW before installing:\n" +
@@ -62,7 +63,7 @@ func (s *InstallerService) EnsureNetfilterPersistent() error {
 		return nil
 	}
 
-	if s.commandExists("netfilter-persistent") {
+	if s.cmdSvc.CommandExists("netfilter-persistent") {
 		s.logger.Debug().Msg("netfilter-persistent is installed")
 		return nil
 	}
@@ -70,12 +71,6 @@ func (s *InstallerService) EnsureNetfilterPersistent() error {
 	return fmt.Errorf(
 		"netfilter-persistent is not installed.\nInstall manually:\n  Debian/Ubuntu: sudo apt-get install netfilter-persistent iptables-persistent",
 	)
-}
-
-// commandExists checks if a command is available in PATH
-func (s *InstallerService) commandExists(cmd string) bool {
-	_, err := exec.LookPath(cmd)
-	return err == nil
 }
 
 // getDistroType detects the Linux distribution type
@@ -93,7 +88,7 @@ func getDistroType() string {
 func (s *InstallerService) EnsureLoggingDependencies() error {
 	s.logger.Info().Msg("Checking logging dependencies")
 
-	if !s.commandExists("whois") {
+	if !s.cmdSvc.CommandExists("whois") {
 		return fmt.Errorf(
 			"whois is not installed (required for log aggregation).\n" +
 				"Install manually:\n" +
@@ -103,7 +98,7 @@ func (s *InstallerService) EnsureLoggingDependencies() error {
 	}
 	s.logger.Debug().Str("pkg", "whois").Msg("Dependency installed")
 
-	if !s.commandExists("rsyslog") && !s.commandExists("rsyslogd") {
+	if !s.cmdSvc.CommandExists("rsyslog") && !s.cmdSvc.CommandExists("rsyslogd") {
 		return fmt.Errorf(
 			"rsyslog is not installed (required for iptables log capture).\n" +
 				"Install manually:\n" +

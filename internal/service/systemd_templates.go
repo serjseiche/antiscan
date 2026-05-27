@@ -2,7 +2,9 @@ package service
 
 // SystemdTemplates contains all systemd unit file templates
 const (
-	// IpsetRestoreServiceTemplate is the systemd service for restoring ipset on boot
+	// IpsetRestoreServiceTemplate is the systemd service for restoring ipset on boot.
+	// NOTE: The set name "SCANNERS-BLOCK-V4" and chain name "SCANNERS-BLOCK" below
+	// must match the ipsetV4Name and chainName constants defined in ipset.go / iptables.go.
 	IpsetRestoreServiceTemplate = `[Unit]
 Description=Restore AntiscanSimple ipset configuration
 Before=netfilter-persistent.service
@@ -84,7 +86,7 @@ get_ip_info() {
     fi
     local asn="" netname=""
     local whois_output
-    whois_output=$(timeout 3 whois -h whois.ripe.net "$ip" 2>/dev/null || echo "")
+    whois_output=$(timeout 5 whois "$ip" 2>/dev/null || echo "")
     if [ -n "$whois_output" ]; then
         asn=$(echo "$whois_output" | grep -iE "^origin:"  | head -1 | awk '{print $2}' | sed 's/AS//gi' | tr -d '\r\n ')
         netname=$(echo "$whois_output" | grep -iE "^netname:" | head -1 | awk '{print $2}' | tr -d '\r\n')
@@ -200,6 +202,8 @@ Persistent=true
 WantedBy=timers.target
 `
 
+	// DockerRulesServiceTemplate re-injects the DROP rule into DOCKER-USER.
+	// NOTE: "SCANNERS-BLOCK-V4" must match ipsetV4Name in ipset.go.
 	DockerRulesServiceTemplate = `[Unit]
 Description=Reinject SCANNERS-BLOCK rule into DOCKER-USER after docker starts
 After=docker.service
@@ -231,7 +235,6 @@ WantedBy=timers.target
 // IpsetConfigPaths contains paths for ipset configuration
 const (
 	IpsetConfigPath     = "/etc/ipset.conf"
-	IpsetConfigPathAlt  = "/etc/iptables/ipsets"
 	IptablesRulesV4Path = "/etc/iptables/rules.v4"
 )
 

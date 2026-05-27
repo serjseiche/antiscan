@@ -114,7 +114,7 @@ func (s *StatusService) ipsetEntryCount(setName string) (int, error) {
 
 // blockedPackets sums packet counters from DROP rules in SCANNERS-BLOCK (IPv4).
 func (s *StatusService) blockedPackets() (uint64, error) {
-	out, err := s.cmdSvc.RunOutput("iptables", "-L", chainName, "-v", "-n", "-x")
+	out, err := s.cmdSvc.RunOutputQuiet("iptables", "-L", chainName, "-v", "-n", "-x")
 	if err != nil {
 		return 0, fmt.Errorf("iptables -L: %w", err)
 	}
@@ -180,6 +180,10 @@ func formatLastUpdate(t time.Time) string {
 		return "—"
 	}
 	d := time.Since(t)
+	if d < 0 {
+		// Clock was adjusted backward since the last save.
+		return fmt.Sprintf("in the future (%s)", t.Format(time.RFC3339))
+	}
 	switch {
 	case d < time.Minute:
 		return fmt.Sprintf("%d seconds ago (%s)", int(d.Seconds()), t.Format(time.RFC3339))

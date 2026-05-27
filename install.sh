@@ -78,14 +78,27 @@ get_latest_release_tag() {
         api_url="${api_url}/latest"
     fi
 
-    local tag=""
+    local raw=""
     if command -v curl &> /dev/null; then
-        tag=$(curl -fsSL "${api_url}" | grep -o '"tag_name": *"[^"]*"' | head -1 | sed 's/"tag_name": *"\(.*\)"/\1/')
+        raw=$(curl -fsSL "${api_url}")
     elif command -v wget &> /dev/null; then
-        tag=$(wget -qO- "${api_url}" | grep -o '"tag_name": *"[^"]*"' | head -1 | sed 's/"tag_name": *"\(.*\)"/\1/')
+        raw=$(wget -qO- "${api_url}")
     else
         log_error "Neither curl nor wget found. Install one of them and retry."
         exit 1
+    fi
+
+    local tag=""
+    # Prefer jq for robust JSON parsing; fall back to grep/sed.
+    if command -v jq &> /dev/null; then
+        # DEV_MODE returns an array; latest returns an object.
+        if [ "$DEV_MODE" = true ]; then
+            tag=$(echo "$raw" | jq -r '.[0].tag_name // empty' 2>/dev/null)
+        else
+            tag=$(echo "$raw" | jq -r '.tag_name // empty' 2>/dev/null)
+        fi
+    else
+        tag=$(echo "$raw" | grep -o '"tag_name": *"[^"]*"' | head -1 | sed 's/"tag_name": *"\(.*\)"/\1/')
     fi
 
     if [ -z "$tag" ]; then
@@ -143,12 +156,13 @@ install_binary() {
 }
 
 verify_installation() {
-    if command -v "${BINARY_NAME}" &> /dev/null; then
+    local install_path="${INSTALL_DIR}/${BINARY_NAME}"
+    if [ -x "${install_path}" ]; then
         local version
-        version=$("${BINARY_NAME}" --version 2>&1 | head -n1)
+        version=$("${install_path}" --version 2>&1 | head -n1)
         log_info "${BINARY_NAME} installed successfully"
         log_info "Version: ${version}"
-        log_info "Path:    $(which "${BINARY_NAME}")"
+        log_info "Path:    ${install_path}"
         return 0
     else
         log_error "Installation verification failed"

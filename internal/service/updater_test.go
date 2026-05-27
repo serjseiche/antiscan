@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -68,5 +69,23 @@ func TestFormatDurationForSystemd(t *testing.T) {
 				t.Errorf("FormatDurationForSystemd(%v) = %q, want %q", tc.input, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestFormatDurationForSystemdPanicsOnSubSecond(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic for sub-second duration, but did not panic")
+		}
+	}()
+	FormatDurationForSystemd(500 * time.Millisecond)
+}
+
+// TestUpdateTimerTemplatePlaceholder ensures the {interval} placeholder is
+// present so that updater.Setup can replace it at runtime. If the placeholder
+// is accidentally removed or renamed, this test will catch it.
+func TestUpdateTimerTemplatePlaceholder(t *testing.T) {
+	if !strings.Contains(UpdateTimerTemplate, "{interval}") {
+		t.Error("UpdateTimerTemplate does not contain {interval} placeholder; updater.Setup will write a broken timer file")
 	}
 }

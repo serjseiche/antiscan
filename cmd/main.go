@@ -252,7 +252,7 @@ func runUninstall(cmd *cobra.Command, args []string) {
 	uninstaller := service.NewUninstallerService(log.Logger, cmdSvc)
 
 	if err := installer.CheckRootPrivileges(); err != nil {
-		log.Fatal().Msg("Must be run as root (use sudo)")
+		log.Fatal().Err(err).Msg("Must be run as root (use sudo)")
 	}
 
 	if !confirmYes {

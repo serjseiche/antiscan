@@ -1,7 +1,10 @@
 package service
 
 import (
+	"fmt"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseIpsetEntries(t *testing.T) {
@@ -120,6 +123,77 @@ func TestParseDropPackets(t *testing.T) {
 			got := parseDropPackets(tc.input)
 			if got != tc.want {
 				t.Errorf("got %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFormatCount(t *testing.T) {
+	tests := []struct {
+		name    string
+		n       int
+		err     error
+		want    string
+	}{
+		{"zero", 0, nil, "0"},
+		{"positive", 42, nil, "42"},
+		{"error", 0, fmt.Errorf("some error"), "unknown (some error)"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatCount(tc.n, tc.err)
+			if got != tc.want {
+				t.Errorf("formatCount(%d, %v) = %q, want %q", tc.n, tc.err, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFormatLastUpdate(t *testing.T) {
+	now := time.Now()
+
+	tests := []struct {
+		name        string
+		t           time.Time
+		wantContain string
+	}{
+		{
+			name:        "zero time",
+			t:           time.Time{},
+			wantContain: "—",
+		},
+		{
+			name:        "future time (clock skew)",
+			t:           now.Add(10 * time.Minute),
+			wantContain: "in the future",
+		},
+		{
+			name:        "seconds ago",
+			t:           now.Add(-30 * time.Second),
+			wantContain: "seconds ago",
+		},
+		{
+			name:        "minutes ago",
+			t:           now.Add(-5 * time.Minute),
+			wantContain: "minutes ago",
+		},
+		{
+			name:        "hours ago",
+			t:           now.Add(-3 * time.Hour),
+			wantContain: "hours ago",
+		},
+		{
+			name:        "days ago",
+			t:           now.Add(-48 * time.Hour),
+			wantContain: "days ago",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatLastUpdate(tc.t)
+			if !strings.Contains(got, tc.wantContain) {
+				t.Errorf("formatLastUpdate(%v) = %q, want it to contain %q", tc.t, got, tc.wantContain)
 			}
 		})
 	}
