@@ -112,6 +112,12 @@ func runFull(cmd *cobra.Command, args []string) {
 		log.Fatal().Err(err).Msg("netfilter-persistent check failed")
 	}
 
+	if enableLogging {
+		if err := installer.EnsureLoggingDependencies(); err != nil {
+			log.Fatal().Err(err).Msg("Logging dependency check failed")
+		}
+	}
+
 	networks, err := downloader.Download(urls)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to download subnets")

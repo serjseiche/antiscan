@@ -89,6 +89,34 @@ func getDistroType() string {
 	return "unknown"
 }
 
+// EnsureLoggingDependencies checks binaries required when --enable-logging is set.
+func (s *InstallerService) EnsureLoggingDependencies() error {
+	s.logger.Info().Msg("Checking logging dependencies")
+
+	if !s.commandExists("whois") {
+		return fmt.Errorf(
+			"whois is not installed (required for log aggregation).\n" +
+				"Install manually:\n" +
+				"  Debian/Ubuntu: sudo apt-get install whois\n" +
+				"  RHEL/CentOS:   sudo yum install whois",
+		)
+	}
+	s.logger.Debug().Str("pkg", "whois").Msg("Dependency installed")
+
+	if !s.commandExists("rsyslog") && !s.commandExists("rsyslogd") {
+		return fmt.Errorf(
+			"rsyslog is not installed (required for iptables log capture).\n" +
+				"Install manually:\n" +
+				"  Debian/Ubuntu: sudo apt-get install rsyslog\n" +
+				"  RHEL/CentOS:   sudo yum install rsyslog",
+		)
+	}
+	s.logger.Debug().Str("pkg", "rsyslog").Msg("Dependency installed")
+
+	s.logger.Info().Msg("All logging dependencies satisfied")
+	return nil
+}
+
 // CheckRootPrivileges verifies the program is running as root
 func (s *InstallerService) CheckRootPrivileges() error {
 	if os.Geteuid() != 0 {
